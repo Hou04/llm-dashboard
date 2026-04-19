@@ -1,0 +1,4 @@
+tenant_id,tenant_name,tenant_tier,monthly_budget_eur
+C1_SMALL,Alpha SARL,Small,50
+C2_MEDIUM,Beta SA,Medium,300
+C3_ENTERPRISE,Gamma Corp,Enterprise,2000

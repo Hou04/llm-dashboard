@@ -1,0 +1,4 @@
+month,tenant_id,predicted_cost_eur
+2025-07,C1_SMALL,60
+2025-07,C2_MEDIUM,350
+2025-07,C3_ENTERPRISE,2300

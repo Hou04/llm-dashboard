@@ -1,0 +1,75 @@
+anomaly_id,tenant_id,date,anomaly_type,severity,description,delta_cost
+377a36be-bf64-4510-bab0-be316fb89d7a,C1_SMALL,2026-03-21T07:49:46.341820,error_rate_spike,high,Error rate spiked to 10% over 1 hour.,123.03
+2f46a88b-78a1-4990-9356-74df6ccd1813,C1_SMALL,2026-03-09T16:34:29.341820,cost_spike,critical,Traffic surge by agent exceeding expected moving average.,131.63
+9fe87faa-7fa3-4a37-b86c-56f6a48edf66,C1_SMALL,2026-04-09T18:18:40.341820,latency_spike,critical,Traffic surge by agent exceeding expected moving average.,115.84
+2f3d4441-5f50-490f-ae29-683b8a02ce48,C1_SMALL,2025-11-19T11:21:36.341820,error_rate_spike,warning,Error rate spiked to 11% over 1 hour.,10.83
+0dcd1884-0a4c-4c6e-b71b-bd57ff578ff3,C1_SMALL,2025-12-27T14:58:43.341820,error_rate_spike,high,Traffic surge by agent exceeding expected moving average.,42.43
+02ca1bd7-6d61-481c-a6a1-bae6b9080fc2,C1_SMALL,2025-10-20T12:43:01.341820,cost_spike,medium,Unusual high cost observed for gpt-4 usage.,43.19
+accef9a5-46a0-40cd-8bcb-07593e6d87fb,C1_SMALL,2026-03-30T16:28:36.341820,latency_spike,warning,Sudden 103% increase in API latency detected.,87.61
+a7d0d8c9-2f74-4644-a538-3695ab1b1164,C1_SMALL,2026-03-01T14:42:39.341820,cost_spike,high,Sudden 152% increase in API latency detected.,37.88
+28a3cf31-3299-4138-90c7-dadd177f8851,C1_SMALL,2026-01-22T10:23:02.341820,cost_spike,medium,Error rate spiked to 11% over 1 hour.,64.65
+821570d5-0381-49ac-8714-f53e2bee36ea,C1_SMALL,2025-12-06T09:56:00.341820,latency_spike,warning,Unusual high cost observed for gpt-4 usage.,119.77
+80ac9718-4b46-41ba-8bcd-583fcd9f1602,C1_SMALL,2025-11-01T21:45:22.341820,cost_spike,critical,Sudden 210% increase in API latency detected.,138.21
+34d319f9-f00a-4f0c-a3cf-5979322fea24,C1_SMALL,2026-02-09T22:53:25.341820,cost_spike,medium,Sudden 317% increase in API latency detected.,133.68
+ca23fd23-a44c-42e9-ba3e-96350d7db73d,C1_SMALL,2026-03-18T11:14:05.341820,cost_spike,warning,Sudden 104% increase in API latency detected.,117.36
+10b36e48-2de7-4fe5-869e-e7de2519a743,C1_SMALL,2025-12-11T08:34:16.341820,latency_spike,medium,Unusual high cost observed for gpt-4 usage.,35.5
+9fd46e90-6e8c-422b-b96e-64cf84e5350f,C1_SMALL,2026-02-12T14:34:21.341820,latency_spike,warning,Sudden 295% increase in API latency detected.,119.97
+4156231e-1984-43eb-a428-d4eba17ec9d7,C1_SMALL,2026-03-13T18:17:20.341820,latency_spike,medium,Error rate spiked to 14% over 1 hour.,145.78
+34459971-8ee0-41e1-a1ce-21bf64a9ed18,C1_SMALL,2026-02-16T22:15:00.341820,cost_spike,high,Traffic surge by agent exceeding expected moving average.,16.45
+5dc67fba-3bc7-448b-b8eb-3688f0e011c7,C1_SMALL,2026-03-16T05:52:07.341820,error_rate_spike,medium,Sudden 140% increase in API latency detected.,139.06
+7fb9def0-dd2b-49a2-9856-5cb5381a8375,C1_SMALL,2025-10-22T18:12:19.341820,error_rate_spike,warning,Error rate spiked to 7% over 1 hour.,18.75
+62f777a4-8dfc-4b33-b023-0863431396ce,C1_SMALL,2025-10-28T15:14:42.341820,cost_spike,critical,Error rate spiked to 11% over 1 hour.,88.6
+cf53b8c4-e4a1-4185-9186-c1c587475945,C1_SMALL,2025-10-24T07:50:05.341820,cost_spike,warning,Sudden 185% increase in API latency detected.,18.32
+6a33943a-e6df-43d7-9b0f-9ccff0a387a3,C1_SMALL,2026-04-09T05:30:54.341820,error_rate_spike,warning,Sudden 64% increase in API latency detected.,11.97
+6971fc3e-cad8-4110-9504-c1056b89e909,C1_SMALL,2025-10-29T21:23:02.341820,cost_spike,high,Unusual high cost observed for gpt-4 usage.,143.6
+c1bae162-bf57-49d4-b567-cec1ac79ba57,C1_SMALL,2026-03-03T15:51:04.341820,cost_spike,critical,Traffic surge by agent exceeding expected moving average.,33.34
+30a27555-6f63-43a9-a360-2da8eddd3697,C1_SMALL,2026-04-05T11:39:02.341820,latency_spike,warning,Sudden 161% increase in API latency detected.,40.87
+3073007c-dcb5-413c-82a1-870ea8f94459,C1_SMALL,2026-01-20T00:48:50.341820,error_rate_spike,critical,Unusual high cost observed for gpt-4 usage.,25.99
+b85b8dc5-700a-47aa-9fae-c499a7a026ce,C1_SMALL,2026-03-27T06:13:48.341820,error_rate_spike,medium,Error rate spiked to 10% over 1 hour.,108.4
+51c52363-0177-4046-bebb-1346f3759164,C1_SMALL,2025-11-15T22:59:00.341820,cost_spike,high,Unusual high cost observed for gpt-4 usage.,14.35
+bb56bf44-a7ea-4a4e-9b4f-d51e3ae4ebd9,C1_SMALL,2026-04-02T22:51:07.341820,cost_spike,high,Error rate spiked to 8% over 1 hour.,105.33
+270f10e6-6bd2-4428-8cb8-7fae199d1ce0,C2_MEDIUM,2026-02-25T03:04:38.341820,error_rate_spike,medium,Unusual high cost observed for gpt-4 usage.,61.87
+6ac83809-c6f1-44ab-97be-28ba8f963153,C2_MEDIUM,2026-03-04T04:33:04.341820,cost_spike,critical,Sudden 256% increase in API latency detected.,88.49
+8143bcff-9bba-4d72-977a-a84da4e793e1,C2_MEDIUM,2026-02-10T14:10:32.341820,cost_spike,high,Traffic surge by agent exceeding expected moving average.,10.99
+84888f36-117f-4b44-80c7-2644fc889fb3,C2_MEDIUM,2025-10-20T09:13:08.341820,cost_spike,high,Unusual high cost observed for gpt-4 usage.,118.41
+dfe37f3a-749a-4ffc-a55c-50ee8b3ff55d,C2_MEDIUM,2026-02-22T22:41:41.341820,error_rate_spike,medium,Error rate spiked to 15% over 1 hour.,38.69
+91794b48-7630-4a66-9055-148ee0338bbc,C2_MEDIUM,2026-01-24T20:12:00.341820,cost_spike,warning,Traffic surge by agent exceeding expected moving average.,95.96
+1eab1fe2-1e45-4d82-84e8-50aca8a3c9d3,C2_MEDIUM,2025-12-13T06:33:19.341820,error_rate_spike,medium,Sudden 373% increase in API latency detected.,97.51
+7dc96a17-921c-4355-a5fb-50afeaf1973f,C2_MEDIUM,2026-02-22T08:10:15.341820,error_rate_spike,warning,Error rate spiked to 9% over 1 hour.,82.69
+d0c274a4-7660-4f6f-b17a-971f3a9e4e01,C2_MEDIUM,2026-01-08T00:49:29.341820,error_rate_spike,medium,Unusual high cost observed for gpt-4 usage.,92.52
+95ceb206-73b9-40c9-9d30-57415ea26ca1,C2_MEDIUM,2026-02-20T09:57:04.341820,error_rate_spike,medium,Error rate spiked to 9% over 1 hour.,69.35
+eb62eaec-8309-41cb-85b5-6d02dea51d6c,C2_MEDIUM,2026-01-06T02:06:02.341820,cost_spike,critical,Error rate spiked to 5% over 1 hour.,59.6
+caf728da-3f41-43bd-aa47-5a8b34f01715,C2_MEDIUM,2025-12-15T03:30:42.341820,cost_spike,warning,Traffic surge by agent exceeding expected moving average.,126.57
+83f84b77-eb57-4513-b542-4315a0d39763,C2_MEDIUM,2026-04-04T22:39:48.341820,error_rate_spike,warning,Error rate spiked to 6% over 1 hour.,131.18
+a8757a34-7b58-4048-9334-4e8e5ff95abd,C2_MEDIUM,2025-12-03T00:20:21.341820,cost_spike,critical,Traffic surge by agent exceeding expected moving average.,122.03
+a1054aa9-b51d-4ba6-b2b4-990bc3976963,C2_MEDIUM,2026-01-19T16:26:04.341820,latency_spike,warning,Unusual high cost observed for gpt-4 usage.,36.58
+69fea5c9-354c-47ff-85cc-f516ae2bfcd9,C2_MEDIUM,2026-03-14T07:39:52.341820,cost_spike,medium,Traffic surge by agent exceeding expected moving average.,57.07
+e8e1f7c6-41e0-46d5-920c-da2580e7ca3a,C2_MEDIUM,2025-12-17T03:04:53.341820,error_rate_spike,medium,Error rate spiked to 11% over 1 hour.,64.74
+fe0c548e-5c71-41ad-b5b2-e390faa8c9ca,C2_MEDIUM,2026-01-14T16:25:07.341820,cost_spike,critical,Error rate spiked to 10% over 1 hour.,78.42
+724ae127-5ebf-4e53-b02b-5d9a53623db4,C2_MEDIUM,2026-02-16T22:45:38.341820,cost_spike,warning,Traffic surge by agent exceeding expected moving average.,71.62
+f440eb3d-d1d8-47a4-8010-eae263496849,C2_MEDIUM,2026-03-06T00:34:34.341820,error_rate_spike,warning,Error rate spiked to 7% over 1 hour.,59.09
+ff1053a3-59da-47f7-b5b5-a19c2358e008,C2_MEDIUM,2026-03-21T17:18:58.341820,cost_spike,warning,Error rate spiked to 14% over 1 hour.,42.96
+a3c550be-511f-4774-8d3a-9e719e27e023,C3_ENTERPRISE,2026-02-22T19:08:48.341820,latency_spike,high,Unusual high cost observed for gpt-4 usage.,14.57
+21e63e10-8eb9-4b4a-8abb-8b66e8d75b7b,C3_ENTERPRISE,2025-10-30T09:51:09.341820,latency_spike,critical,Traffic surge by agent exceeding expected moving average.,36.67
+297888e6-9301-4800-a3da-123e6218ad4c,C3_ENTERPRISE,2026-02-04T15:05:08.341820,cost_spike,warning,Unusual high cost observed for gpt-4 usage.,119.42
+99a8bb0b-d877-418d-8c1e-ef0299bb43df,C3_ENTERPRISE,2026-01-08T04:28:58.341820,cost_spike,high,Unusual high cost observed for gpt-4 usage.,107.83
+6e29f0a7-3fc1-4130-be59-3a5e9148b6fc,C3_ENTERPRISE,2026-02-26T11:46:57.341820,error_rate_spike,medium,Error rate spiked to 14% over 1 hour.,116.86
+7b48d6d6-d4f0-4116-b564-7b722184dee4,C3_ENTERPRISE,2026-04-10T13:14:47.341820,error_rate_spike,high,Unusual high cost observed for gpt-4 usage.,16.71
+29bf40ee-aea3-48e7-8138-32c2d0b5206b,C3_ENTERPRISE,2026-01-04T11:54:20.341820,error_rate_spike,medium,Error rate spiked to 15% over 1 hour.,35.46
+9afd5f50-c0f5-4a4b-9437-0935da0e3ea3,C3_ENTERPRISE,2026-03-03T06:37:04.341820,cost_spike,medium,Error rate spiked to 9% over 1 hour.,56.32
+b7710bcb-5806-44dc-968e-47db30fe3b6d,C3_ENTERPRISE,2026-03-17T09:48:59.341820,error_rate_spike,medium,Sudden 364% increase in API latency detected.,75.4
+ed901573-017d-4a70-8117-4c6277de6333,C3_ENTERPRISE,2025-11-14T10:45:37.341820,cost_spike,warning,Unusual high cost observed for gpt-4 usage.,60.76
+76faafd8-1a6a-412c-8ab5-d5d94363b26a,C3_ENTERPRISE,2026-04-06T01:29:31.341820,error_rate_spike,medium,Sudden 59% increase in API latency detected.,73.21
+7bcf9de7-9f43-483d-aa79-8d0566043466,C3_ENTERPRISE,2026-02-16T02:15:16.341820,error_rate_spike,medium,Unusual high cost observed for gpt-4 usage.,65.94
+1486827a-fbe0-479c-8435-b30d1fe12073,C3_ENTERPRISE,2025-10-31T14:04:31.341820,latency_spike,warning,Sudden 293% increase in API latency detected.,49.42
+fec92237-8349-43c5-98d6-cebfe84d68ba,C3_ENTERPRISE,2025-11-01T16:52:35.341820,latency_spike,warning,Unusual high cost observed for gpt-4 usage.,112.34
+7d890a3e-da54-48a1-bab6-5de2f5ed1919,C3_ENTERPRISE,2025-12-17T00:53:44.341820,error_rate_spike,medium,Traffic surge by agent exceeding expected moving average.,83.09
+5d8f381e-ed55-443a-899f-85ed7995e91e,C3_ENTERPRISE,2026-03-15T20:25:50.341820,cost_spike,warning,Traffic surge by agent exceeding expected moving average.,45.64
+8da10d2a-2f5b-4414-b7ce-3815ca65746f,C3_ENTERPRISE,2025-10-31T15:42:19.341820,error_rate_spike,medium,Traffic surge by agent exceeding expected moving average.,26.37
+2ea38c4d-e9ac-4119-932c-a8e796ec035c,C3_ENTERPRISE,2026-03-04T21:50:57.341820,cost_spike,warning,Traffic surge by agent exceeding expected moving average.,7.52
+32cf87e3-2920-4803-815d-1b34ba2ef6aa,C3_ENTERPRISE,2025-11-10T22:34:06.341820,latency_spike,medium,Unusual high cost observed for gpt-4 usage.,113.89
+9e1534a4-6af0-43c1-a736-bfc75677d3b1,C3_ENTERPRISE,2026-03-01T03:15:00.341820,error_rate_spike,medium,Sudden 117% increase in API latency detected.,61.08
+a933bef6-4935-48bc-a910-1dd93d3bd133,C3_ENTERPRISE,2025-11-28T18:28:25.341820,latency_spike,medium,Sudden 311% increase in API latency detected.,97.97
+2b3b063d-6ee5-4c2f-9c53-9b17a2215457,C3_ENTERPRISE,2025-11-04T07:17:39.341820,error_rate_spike,critical,Sudden 52% increase in API latency detected.,127.68
+17ef0062-7783-4919-b303-5effe2df5fd6,C3_ENTERPRISE,2025-12-28T00:34:03.341820,latency_spike,medium,Traffic surge by agent exceeding expected moving average.,124.0
+d9037b57-6e8b-4897-8b89-e71054cd611a,C3_ENTERPRISE,2025-10-27T23:15:11.341820,latency_spike,high,Sudden 86% increase in API latency detected.,69.22

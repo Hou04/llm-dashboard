@@ -1,0 +1,195 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage{geometry}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{hyperref}
+
+\geometry{margin=2.5cm}
+
+\title{\textbf{Plateforme Agents IA -- Dashboard LLM \\ 
+QALITAS et GMAO PRO}}
+\author{TIM Techniques industrielles et Management}
+\date{TBR. TIM.IA.S11/2025-2026}
+
+\begin{document}
+
+\maketitle
+
+\section*{DOCUMENT STRICTEMENT CONFIDENTIEL}
+
+\section{Système d’Agents IA pour le Monitoring \& la Gouvernance des Tokens LLM}
+
+Système permettant de mesurer précisément la consommation de tokens LLM, maîtriser les coûts IA, prévenir les dérives, optimiser l’usage des prompts et modèles, assurer une facturation transparente aux clients.
+
+\subsection*{Vue d’ensemble}
+
+\textbf{Chaîne de valeur :}
+
+\begin{center}
+Mesurer $\rightarrow$ Calculer $\rightarrow$ Détecter $\rightarrow$ Expliquer $\rightarrow$ Optimiser $\rightarrow$ Anticiper $\rightarrow$ Gouverner $\rightarrow$ Piloter $\rightarrow$ Visualiser $\rightarrow$ Facturer
+\end{center}
+
+\textbf{Agents :}
+
+\begin{itemize}
+\item M1 --- Collecte \& Normalisation des Logs LLM
+\item M2 --- Agrégation \& Calcul des Coûts Tokens
+\item M3 --- Détection de Dérives \& Anomalies
+\item M4 --- Explication \& Recommandations (LLM)
+\item M5 --- Optimisation Prompts \& Modèles
+\item M6 --- Prévision Budgétaire \& Capacity Planning
+\item M7 --- Gouvernance \& Quotas IA
+\item M8 --- Assistant Dashboard Tokens \& Coûts (LLM)
+\item M9 --- Générateur \& Orchestrateur du Dashboard
+\item M10 --- Facturation \& Reporting Client IA
+\end{itemize}
+
+\subsection*{Valeur globale}
+
+\begin{itemize}
+\item Maîtrise et monétisation des coûts IA
+\item Gouvernance IA robuste (quotas, règles, audit)
+\item Transparence totale client
+\item Scalabilité sans dérive financière
+\item Différenciation SaaS majeure
+\end{itemize}
+
+\textbf{Message clé :} Ce dispositif transforme l’IA d’un centre de coûts opaque en un actif mesuré, optimisé, gouverné et facturable.
+
+\newpage
+
+\section{AGENT M1 --- Collecte \& Normalisation des Logs LLM}
+
+\subsection{Rôle stratégique}
+
+L’agent M1 est le point de passage obligatoire de tous les appels LLM. Il transforme chaque appel IA en transaction mesurable, traçable et facturable.
+
+\begin{itemize}
+\item Sans M1 : consommation opaque
+\item Avec M1 : consommation pilotable et monétisable
+\end{itemize}
+
+\subsection{Mission}
+
+\begin{itemize}
+\item Centraliser tous les appels LLM
+\item Mesurer la consommation de tokens
+\item Normaliser les logs
+\item Alimenter le dashboard
+\item Garantir la gouvernance et l’auditabilité
+\end{itemize}
+
+\subsection{Architecture}
+
+\begin{center}
+Modules $\rightarrow$ M1 (LLM Gateway) $\rightarrow$ Provider LLM
+\end{center}
+
+\textbf{Principe :} Aucun module n’appelle directement un LLM.
+
+\subsection{Workflow}
+
+\begin{enumerate}
+\item Interception (trace, métadonnées)
+\item Pré-contrôle (quotas, règles)
+\item Appel LLM
+\item Comptabilisation des tokens
+\item Normalisation des données
+\item Sécurité \& conformité
+\item Persistance \& événements
+\end{enumerate}
+
+\subsection{KPI}
+
+\begin{itemize}
+\item Nombre d’appels
+\item Tokens totaux
+\item Coût IA
+\item Latence
+\item Taux d’erreur
+\end{itemize}
+
+\newpage
+
+\section{AGENT M2 --- Agrégation \& Calcul des Coûts Tokens}
+
+\subsection{Rôle stratégique}
+
+M2 transforme les logs techniques en indicateurs financiers exploitables.
+
+\begin{itemize}
+\item M1 mesure
+\item M2 calcule
+\end{itemize}
+
+\subsection{Mission}
+
+\begin{itemize}
+\item Consolider les logs
+\item Calculer les coûts
+\item Agréger par client, agent, modèle
+\item Produire des tables BI
+\end{itemize}
+
+\subsection{Formules de coût}
+
+\begin{itemize}
+\item coût input = tokens\_input $\times$ prix\_input
+\item coût output = tokens\_output $\times$ prix\_output
+\item coût total = input + output
+\end{itemize}
+
+\subsection{KPI}
+
+\begin{itemize}
+\item Coût total IA
+\item Coût par client
+\item Coût par agent
+\item Coût par modèle
+\end{itemize}
+
+\newpage
+
+\section{AGENT M3 --- Détection de Dérives}
+
+\subsection{Rôle}
+
+M3 détecte les anomalies de consommation.
+
+\begin{itemize}
+\item M1 mesure
+\item M2 calcule
+\item M3 alerte
+\end{itemize}
+
+\subsection{Types de dérives}
+
+\begin{itemize}
+\item Volumétriques
+\item Par appel
+\item Par agent
+\item Par modèle
+\item Financières
+\end{itemize}
+
+\subsection{Méthodes}
+
+\begin{itemize}
+\item Règles métiers
+\item Z-score
+\item Comparaison temporelle
+\end{itemize}
+
+\subsection{Outputs}
+
+\begin{itemize}
+\item Alertes
+\item Table anomalies
+\item Score de criticité
+\end{itemize}
+
+\end{document}

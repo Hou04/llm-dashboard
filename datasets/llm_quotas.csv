@@ -1,0 +1,4 @@
+tenant_id,max_tokens_month,max_cost_month_eur
+C1_SMALL,1000000,50
+C2_MEDIUM,5000000,300
+C3_ENTERPRISE,50000000,2000

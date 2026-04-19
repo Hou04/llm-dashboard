@@ -1,0 +1,46 @@
+{
+  "tenants": [
+    {
+      "tenant_id": "C1_SMALL",
+      "tenant_name": "Alpha SARL",
+      "tenant_tier": "Small",
+      "monthly_budget_eur": 50,
+      "daily_call_volume": 150,
+      "agents": ["support_bot", "data_extractor", "ops_analyzer", "Audit"],
+      "contract_type": "pay_as_you_go",
+      "base_fee_usd": 0,
+      "forfait_tokens": 0,
+      "overage_rate_per_1k": 0,
+      "max_tokens_month": 1000000,
+      "max_cost_month_eur": 50
+    },
+    {
+      "tenant_id": "C2_MEDIUM",
+      "tenant_name": "Beta SA",
+      "tenant_tier": "Medium",
+      "monthly_budget_eur": 300,
+      "daily_call_volume": 600,
+      "agents": ["support_bot", "data_extractor", "ops_analyzer", "Audit"],
+      "contract_type": "forfait",
+      "base_fee_usd": 150,
+      "forfait_tokens": 5000000,
+      "overage_rate_per_1k": 0.005,
+      "max_tokens_month": 5000000,
+      "max_cost_month_eur": 300
+    },
+    {
+      "tenant_id": "C3_ENTERPRISE",
+      "tenant_name": "Gamma Corp",
+      "tenant_tier": "Enterprise",
+      "monthly_budget_eur": 2000,
+      "daily_call_volume": 1200,
+      "agents": ["support_bot", "data_extractor", "ops_analyzer", "Audit"],
+      "contract_type": "forfait",
+      "base_fee_usd": 800,
+      "forfait_tokens": 50000000,
+      "overage_rate_per_1k": 0.003,
+      "max_tokens_month": 50000000,
+      "max_cost_month_eur": 2000
+    }
+  ]
+}

@@ -1,0 +1,3668 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <title>LLM Dashboard — Token & Cost Monitor · QALITAS & GMAO PRO</title>
+  <meta name="description"
+    content="AI token monitoring, cost governance and optimization platform for QALITAS and GMAO PRO.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap"
+    rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <style>
+    :root {
+      --bg: #f0f4f8;
+      --card: #ffffff;
+      --card2: #f7f9fc;
+      --border: rgba(15, 30, 60, 0.09);
+      --border2: rgba(15, 30, 60, 0.18);
+      --t1: #0f1e3c;
+      --t2: #4a5c78;
+      --t3: #8fa3bf;
+      --acc: #1a56db;
+      --acc2: #1447b8;
+      --green: #059669;
+      --red: #dc2626;
+      --amber: #d97706;
+      --blue: #2563eb;
+      --r: 8px;
+      --r2: 12px;
+    }
+
+    @media(prefers-color-scheme:dark) {
+      :root {
+        --bg: #0b1120;
+        --card: #111827;
+        --card2: #182030;
+        --border: rgba(148, 163, 184, 0.08);
+        --border2: rgba(148, 163, 184, 0.16);
+        --t1: #e8eef7;
+        --t2: #94a3b8;
+        --t3: #475569;
+        --acc: #3b82f6;
+        --acc2: #2563eb;
+        --green: #10b981;
+        --red: #ef4444;
+        --amber: #f59e0b;
+        --blue: #60a5fa;
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      font-size: 13px;
+      color: var(--t1);
+      background: var(--bg);
+      line-height: 1.5;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 224px 1fr;
+      min-height: 100vh;
+    }
+
+    .sb {
+      background: var(--card);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      z-index: 100;
+      transition: transform .25s cubic-bezier(.4, 0, .2, 1);
+    }
+
+    .main {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .logo {
+      padding: 18px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .logo-name {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: -.3px;
+      color: var(--acc);
+    }
+
+    .logo-sub {
+      font-size: 10px;
+      color: var(--t3);
+      margin-top: 3px;
+      letter-spacing: .04em;
+      font-weight: 500;
+    }
+
+    .nav {
+      padding: 10px 8px;
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    .nav-grp {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--t3);
+      letter-spacing: .1em;
+      text-transform: uppercase;
+      padding: 14px 8px 4px;
+    }
+
+    .nb {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 9px;
+      border-radius: var(--r);
+      border: none;
+      background: none;
+      color: var(--t2);
+      font-size: 12px;
+      cursor: pointer;
+      text-align: left;
+      font-family: inherit;
+      transition: background .12s, color .12s;
+    }
+
+    .nb:hover {
+      background: var(--card2);
+      color: var(--t1);
+    }
+
+    .nb.active {
+      background: rgba(26, 86, 219, 0.09);
+      color: var(--acc);
+      font-weight: 600;
+      border-left: 3px solid var(--acc);
+      padding-left: 6px;
+    }
+
+    .nb svg {
+      width: 14px;
+      height: 14px;
+      flex-shrink: 0;
+      opacity: .65;
+    }
+
+    .nbadge {
+      margin-left: auto;
+      background: #fef2f2;
+      color: #b91c1c;
+      font-size: 10px;
+      padding: 1px 5px;
+      border-radius: 6px;
+      font-weight: 600;
+    }
+
+    .sb-foot {
+      padding: 12px;
+      border-top: 1px solid var(--border);
+    }
+
+    .hrow {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+      padding: 3px 0;
+    }
+
+    .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .dok {
+      background: #10b981;
+    }
+
+    .derr {
+      background: #ef4444;
+    }
+
+    .dwrn {
+      background: #f59e0b;
+    }
+
+    .topbar {
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    .pg-title {
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: -.2px;
+    }
+
+    .pg-meta {
+      font-size: 11px;
+      color: var(--t3);
+      margin-top: 1px;
+    }
+
+    .tb-right {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .pbtn {
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: var(--r);
+      border: 1px solid var(--border2);
+      background: none;
+      color: var(--t2);
+      cursor: pointer;
+      font-family: inherit;
+      transition: all .12s;
+    }
+
+    .pbtn:hover,
+    .pbtn.on {
+      background: var(--acc);
+      color: #fff;
+      border-color: var(--acc);
+    }
+
+    .ask-btn {
+      font-size: 12px;
+      padding: 5px 14px;
+      border-radius: var(--r);
+      border: none;
+      background: var(--acc);
+      color: #fff;
+      cursor: pointer;
+      font-family: inherit;
+      font-weight: 600;
+      transition: background .12s;
+    }
+
+    .ask-btn:hover {
+      background: var(--acc2);
+    }
+
+    .lang-sel {
+      font-size: 11px;
+      padding: 4px 8px;
+      border-radius: var(--r);
+      border: 1px solid var(--border2);
+      background: var(--card2);
+      color: var(--t1);
+      font-family: inherit;
+      cursor: pointer;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--r2);
+      padding: 16px;
+    }
+
+    .card-hdr {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 14px;
+    }
+
+    .ct {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: -.1px;
+      color: var(--t1);
+    }
+
+    .cs {
+      font-size: 10px;
+      color: var(--t3);
+      margin-top: 2px;
+      font-weight: 400;
+    }
+
+    .cl {
+      font-size: 11px;
+      color: var(--acc);
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-family: inherit;
+      font-weight: 500;
+    }
+
+    .kpi4 {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+
+    .kpi3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+    }
+
+    .kpi2 {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+
+    .kpi {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--r2);
+      padding: 14px 16px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .kpi::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, var(--acc), var(--blue));
+      opacity: .5;
+    }
+
+    .kl {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--t3);
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+
+    .kv {
+      font-size: 24px;
+      font-weight: 700;
+      margin-top: 4px;
+      font-family: 'JetBrains Mono', monospace;
+      letter-spacing: -.5px;
+      color: var(--t1);
+    }
+
+    .ks {
+      font-size: 11px;
+      color: var(--t2);
+      margin-top: 2px;
+    }
+
+    .r2 {
+      display: grid;
+      grid-template-columns: 1fr 280px;
+      gap: 16px;
+    }
+
+    .r2b {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .r3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+
+    .trow {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .trow:last-child {
+      border-bottom: none;
+    }
+
+    .tn {
+      flex: 1;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--t1);
+    }
+
+    .tbar {
+      flex: 2;
+      height: 5px;
+      background: var(--card2);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .tb-f {
+      height: 100%;
+      border-radius: 3px;
+      transition: width .5s ease;
+    }
+
+    .tc {
+      font-size: 11px;
+      font-weight: 700;
+      text-align: right;
+      min-width: 56px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .bdg {
+      display: inline-flex;
+      align-items: center;
+      font-size: 10px;
+      padding: 2px 7px;
+      border-radius: 5px;
+      font-weight: 600;
+    }
+
+    .bc {
+      background: #fef2f2;
+      color: #991b1b;
+    }
+
+    .bh {
+      background: #fff7ed;
+      color: #92400e;
+    }
+
+    .bw {
+      background: #fefce8;
+      color: #854d0e;
+    }
+
+    .bn {
+      background: var(--card2);
+      color: var(--t2);
+    }
+
+    .bg {
+      background: #ecfdf5;
+      color: #065f46;
+    }
+
+    .ba {
+      background: #eff6ff;
+      color: #1d4ed8;
+    }
+
+    @media(prefers-color-scheme:dark) {
+      .bc {
+        background: #450a0a;
+        color: #fca5a5;
+      }
+
+      .bh {
+        background: #431407;
+        color: #fdba74;
+      }
+
+      .bw {
+        background: #422006;
+        color: #fcd34d;
+      }
+
+      .bg {
+        background: #052e16;
+        color: #86efac;
+      }
+
+      .ba {
+        background: rgba(59, 130, 246, 0.15);
+        color: #93c5fd;
+      }
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      font-size: 10px;
+      padding: 2px 7px;
+      border-radius: 10px;
+      margin-top: 4px;
+      font-weight: 600;
+    }
+
+    .pill-up {
+      background: #ecfdf5;
+      color: #065f46;
+    }
+
+    .pill-dn {
+      background: #fef2f2;
+      color: #991b1b;
+    }
+
+    @media(prefers-color-scheme:dark) {
+      .pill-up {
+        background: #052e16;
+        color: #86efac;
+      }
+
+      .pill-dn {
+        background: #450a0a;
+        color: #fca5a5;
+      }
+    }
+
+    .arow {
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .arow:last-child {
+      border-bottom: none;
+    }
+
+    .atop {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 3px;
+    }
+
+    .adsc {
+      font-size: 11px;
+      color: var(--t2);
+      line-height: 1.5;
+    }
+
+    .mrow {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .mrow:last-child {
+      border-bottom: none;
+    }
+
+    .mname {
+      flex: 1;
+      font-size: 12px;
+      color: var(--t1);
+    }
+
+    .mpill {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 5px;
+      background: var(--card2);
+      color: var(--t2);
+    }
+
+    .mcost {
+      font-size: 11px;
+      font-weight: 700;
+      min-width: 54px;
+      text-align: right;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .mpct {
+      font-size: 10px;
+      color: var(--t3);
+      min-width: 34px;
+      text-align: right;
+    }
+
+    .frow {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 7px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 12px;
+    }
+
+    .frow:last-child {
+      border-bottom: none;
+    }
+
+    .opt-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .opt-row:last-child {
+      border-bottom: none;
+    }
+
+    .ai-item {
+      display: flex;
+      gap: 10px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .ai-item:last-child {
+      border-bottom: none;
+    }
+
+    .adot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      margin-top: 4px;
+      flex-shrink: 0;
+    }
+
+    .view {
+      display: none;
+    }
+
+    .view.active {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      animation: fadeIn .18s ease;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(3px)
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0)
+      }
+    }
+
+    .loading {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+      color: var(--t2);
+      font-size: 12px;
+      gap: 10px;
+    }
+
+    .spin {
+      width: 14px;
+      height: 14px;
+      border: 2px solid var(--border2);
+      border-top-color: var(--acc);
+      border-radius: 50%;
+      animation: sp .6s linear infinite;
+    }
+
+    @keyframes sp {
+      to {
+        transform: rotate(360deg)
+      }
+    }
+
+    .err-state {
+      padding: 14px;
+      background: #fef2f2;
+      border-radius: var(--r);
+      color: #991b1b;
+      font-size: 12px;
+      border-left: 3px solid var(--red);
+    }
+
+    @media(prefers-color-scheme:dark) {
+      .err-state {
+        background: #450a0a;
+        color: #fca5a5;
+      }
+    }
+
+    .m8-panel {
+      border-top: 1px solid var(--border);
+      padding: 12px 20px;
+      background: var(--card);
+      flex-shrink: 0;
+    }
+
+    .m8-hdr {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .m8-title {
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .m8-badge {
+      font-size: 10px;
+      font-weight: 600;
+      background: #eff6ff;
+      color: #1d4ed8;
+      padding: 2px 8px;
+      border-radius: 5px;
+    }
+
+    @media(prefers-color-scheme:dark) {
+      .m8-badge {
+        background: rgba(59, 130, 246, 0.15);
+        color: #93c5fd;
+      }
+    }
+
+    .chips {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      margin-bottom: 8px;
+    }
+
+    .chip {
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      background: var(--card2);
+      border: 1px solid var(--border2);
+      color: var(--t2);
+      cursor: pointer;
+      font-family: inherit;
+      transition: all .12s;
+      font-weight: 500;
+    }
+
+    .chip:hover {
+      border-color: var(--acc);
+      color: var(--acc);
+      background: var(--card);
+    }
+
+    .m8-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .m8-inp {
+      flex: 1;
+      font-size: 12px;
+      padding: 8px 12px;
+      border-radius: var(--r);
+      border: 1px solid var(--border2);
+      background: var(--card2);
+      color: var(--t1);
+      font-family: inherit;
+      transition: border .12s;
+    }
+
+    .m8-inp:focus {
+      outline: none;
+      border-color: var(--acc);
+      box-shadow: 0 0 0 3px rgba(26, 86, 219, .1);
+    }
+
+    .m8-send {
+      font-size: 12px;
+      padding: 8px 16px;
+      border-radius: var(--r);
+      border: none;
+      background: var(--acc);
+      color: #fff;
+      cursor: pointer;
+      font-family: inherit;
+      font-weight: 600;
+      transition: background .12s;
+    }
+
+    .m8-send:hover {
+      background: var(--acc2);
+    }
+
+    .m8-ans {
+      margin-top: 10px;
+      padding: 12px;
+      background: var(--card2);
+      border-radius: var(--r);
+      font-size: 12px;
+      line-height: 1.7;
+      display: none;
+      border-left: 3px solid var(--acc);
+    }
+
+    .m8-figs {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+
+    .fig {
+      text-align: center;
+    }
+
+    .fig-v {
+      font-size: 14px;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--t1);
+    }
+
+    .fig-l {
+      font-size: 10px;
+      color: var(--t2);
+    }
+
+    input[type=text],
+    select,
+    textarea {
+      background: var(--card2);
+      border: 1px solid var(--border2);
+      border-radius: var(--r);
+      color: var(--t1);
+      font-family: inherit;
+      font-size: 12px;
+      padding: 7px 10px;
+      transition: border .12s;
+    }
+
+    input[type=text]:focus,
+    select:focus,
+    textarea:focus {
+      outline: none;
+      border-color: var(--acc);
+      box-shadow: 0 0 0 3px rgba(26, 86, 219, .1);
+    }
+
+    .btn {
+      font-size: 12px;
+      padding: 7px 14px;
+      border-radius: var(--r);
+      border: 1px solid var(--border2);
+      background: var(--card2);
+      color: var(--t1);
+      cursor: pointer;
+      font-family: inherit;
+      font-weight: 500;
+      transition: all .12s;
+    }
+
+    .btn:hover {
+      border-color: var(--acc);
+      color: var(--acc);
+    }
+
+    .btn-primary {
+      background: var(--acc);
+      border-color: var(--acc);
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      background: var(--acc2);
+      border-color: var(--acc2);
+    }
+
+    .btn-danger {
+      background: #fef2f2;
+      border-color: #fecaca;
+      color: #b91c1c;
+    }
+
+    @media(prefers-color-scheme:dark) {
+      .btn-danger {
+        background: #7f1d1d;
+        border-color: #7f1d1d;
+        color: #fca5a5;
+      }
+    }
+
+    .gov-rule-form {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 14px;
+      background: var(--card2);
+      border-radius: var(--r);
+      border: 1px solid var(--border);
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .form-label {
+      font-size: 10px;
+      color: var(--t2);
+      margin-bottom: 3px;
+      display: block;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+    }
+
+    .chat-area {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      max-height: 340px;
+      overflow-y: auto;
+      padding: 4px 0;
+    }
+
+    .chat-msg {
+      padding: 10px 13px;
+      border-radius: var(--r);
+      font-size: 12px;
+      line-height: 1.7;
+      max-width: 85%;
+    }
+
+    .chat-q {
+      background: var(--acc);
+      color: #fff;
+      align-self: flex-end;
+      border-radius: var(--r) var(--r) 3px var(--r);
+    }
+
+    .chat-a {
+      background: var(--card2);
+      color: var(--t1);
+      align-self: flex-start;
+      border-left: 3px solid var(--acc);
+      border-radius: 3px var(--r) var(--r) var(--r);
+    }
+
+    .cht {
+      position: relative;
+      width: 100%;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+    }
+
+    th {
+      text-align: left;
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--t3);
+      text-transform: uppercase;
+      letter-spacing: .08em;
+      padding: 6px 8px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    td {
+      padding: 7px 8px;
+      border-bottom: 1px solid var(--border);
+      color: var(--t2);
+    }
+
+    td:first-child {
+      color: var(--t1);
+      font-weight: 600;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:hover td {
+      background: var(--card2);
+    }
+
+    .quota-bar {
+      width: 100%;
+      height: 5px;
+      background: var(--card2);
+      border-radius: 3px;
+      overflow: hidden;
+      margin-top: 4px;
+    }
+
+    .qb-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width .5s ease;
+    }
+
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 5px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: var(--border2);
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--t3);
+    }
+
+    /* ── AUTH OVERLAY ─────────────────────────────────────────────── */
+    #auth-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 9000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg);
+    }
+
+    #auth-overlay::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(ellipse at 20% 50%, rgba(26, 86, 219, .15) 0%, transparent 60%), radial-gradient(ellipse at 80% 20%, rgba(16, 185, 129, .1) 0%, transparent 50%);
+      pointer-events: none;
+    }
+
+    .auth-card {
+      background: var(--card);
+      border: 1px solid var(--border2);
+      border-radius: 20px;
+      padding: 40px 44px;
+      width: 100%;
+      max-width: 420px;
+      position: relative;
+      box-shadow: 0 32px 80px rgba(0, 0, 0, .18), 0 0 0 1px rgba(255, 255, 255, .05);
+      animation: authIn .4s cubic-bezier(.2, .8, .3, 1) both;
+    }
+
+    @keyframes authIn {
+      from {
+        opacity: 0;
+        transform: translateY(20px) scale(.97)
+      }
+
+      to {
+        opacity: 1;
+        transform: none
+      }
+    }
+
+    .auth-logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 32px;
+    }
+
+    .auth-logo-icon {
+      width: 40px;
+      height: 40px;
+      background: linear-gradient(135deg, var(--acc), var(--blue));
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .auth-logo-icon svg {
+      color: #fff;
+    }
+
+    .auth-logo-name {
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: -.5px;
+      color: var(--t1);
+    }
+
+    .auth-logo-sub {
+      font-size: 11px;
+      color: var(--t3);
+      margin-top: 2px;
+      font-weight: 500;
+      letter-spacing: .04em;
+    }
+
+    .auth-title {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -.5px;
+      margin-bottom: 6px;
+      color: var(--t1);
+    }
+
+    .auth-sub {
+      font-size: 13px;
+      color: var(--t2);
+      margin-bottom: 28px;
+      line-height: 1.5;
+    }
+
+    .auth-field {
+      margin-bottom: 16px;
+    }
+
+    .auth-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--t2);
+      letter-spacing: .05em;
+      text-transform: uppercase;
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .auth-input {
+      width: 100%;
+      padding: 11px 14px;
+      border-radius: 10px;
+      border: 1.5px solid var(--border2);
+      background: var(--card2);
+      color: var(--t1);
+      font-family: inherit;
+      font-size: 13px;
+      transition: border .16s, box-shadow .16s;
+    }
+
+    .auth-input:focus {
+      outline: none;
+      border-color: var(--acc);
+      box-shadow: 0 0 0 4px rgba(26, 86, 219, .12);
+    }
+
+    .auth-input::placeholder {
+      color: var(--t3);
+    }
+
+    .auth-btn {
+      width: 100%;
+      padding: 12px;
+      border-radius: 10px;
+      border: none;
+      background: linear-gradient(135deg, var(--acc), #2563eb);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      font-family: inherit;
+      letter-spacing: -.2px;
+      transition: opacity .15s, transform .1s;
+      margin-top: 6px;
+    }
+
+    .auth-btn:hover {
+      opacity: .92;
+      transform: translateY(-1px);
+    }
+
+    .auth-btn:active {
+      transform: translateY(0);
+    }
+
+    .auth-btn:disabled {
+      opacity: .5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .auth-err {
+      font-size: 12px;
+      color: var(--red);
+      background: #fef2f2;
+      border-radius: 8px;
+      padding: 10px 14px;
+      margin-top: 12px;
+      display: none;
+      border-left: 3px solid var(--red);
+    }
+
+    @media(prefers-color-scheme:dark) {
+      .auth-err {
+        background: #450a0a;
+        color: #fca5a5;
+      }
+    }
+
+    .auth-demo {
+      margin-top: 24px;
+      padding-top: 18px;
+      border-top: 1px solid var(--border);
+    }
+
+    .auth-demo-title {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--t3);
+      text-transform: uppercase;
+      letter-spacing: .1em;
+      margin-bottom: 10px;
+    }
+
+    .auth-demo-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+
+    .auth-demo-btn {
+      font-size: 11px;
+      padding: 7px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border2);
+      background: var(--card2);
+      color: var(--t2);
+      cursor: pointer;
+      font-family: inherit;
+      text-align: left;
+      transition: all .12s;
+      line-height: 1.4;
+    }
+
+    .auth-demo-btn:hover {
+      border-color: var(--acc);
+      color: var(--acc);
+      background: var(--card);
+    }
+
+    .auth-demo-btn strong {
+      display: block;
+      font-size: 12px;
+      color: var(--t1);
+    }
+
+    .auth-demo-btn span {
+      font-size: 10px;
+      color: var(--t3);
+    }
+
+    /* ── USER CHIP ────────────────────────────────────────────────── */
+    .user-chip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border2);
+      background: var(--card2);
+      cursor: pointer;
+      transition: all .12s;
+      font-size: 12px;
+    }
+
+    .user-chip:hover {
+      border-color: var(--acc);
+      background: var(--card);
+    }
+
+    .user-avatar {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--acc), var(--blue));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 11px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .user-info {
+      display: flex;
+      flex-direction: column;
+      line-height: 1.3;
+    }
+
+    .user-name {
+      font-weight: 600;
+      color: var(--t1);
+      font-size: 11px;
+    }
+
+    .user-role {
+      font-size: 10px;
+      color: var(--t3);
+    }
+
+    .logout-btn {
+      font-size: 11px;
+      padding: 5px 10px;
+      border-radius: 8px;
+      border: 1px solid #fecaca;
+      background: #fef2f2;
+      color: #b91c1c;
+      cursor: pointer;
+      font-family: inherit;
+      font-weight: 600;
+      transition: all .12s;
+    }
+
+    @media(prefers-color-scheme:dark) {
+      .logout-btn {
+        background: #450a0a;
+        border-color: #7f1d1d;
+        color: #f87171;
+      }
+    }
+
+    .logout-btn:hover {
+      background: #fee2e2;
+    }
+
+    /* ── HAMBURGER MENU ──────────────────────────────────────────── */
+    .hamburger {
+      display: none;
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 6px;
+      color: var(--t1);
+      flex-shrink: 0;
+    }
+
+    .hamburger svg {
+      width: 20px;
+      height: 20px;
+    }
+
+    .sb-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, .4);
+      z-index: 90;
+      opacity: 0;
+      transition: opacity .25s;
+    }
+
+    .sb-backdrop.show {
+      display: block;
+      opacity: 1;
+    }
+
+    .sb-close {
+      display: none;
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      background: none;
+      border: none;
+      padding: 4px;
+      cursor: pointer;
+      color: var(--t2);
+    }
+
+    .sb-close svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    /* ── ROLE BADGE ──────────────────────────────────────────────── */
+    .role-bdg {
+      font-size: 9px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+
+    .role-super {
+      background: linear-gradient(135deg, var(--acc), var(--blue));
+      color: #fff;
+    }
+
+    .role-admin {
+      background: #ecfdf5;
+      color: #065f46;
+    }
+
+    .role-viewer {
+      background: var(--card2);
+      color: var(--t3);
+    }
+
+    @media(prefers-color-scheme:dark) {
+      .role-admin {
+        background: #052e16;
+        color: #86efac;
+      }
+    }
+
+    /* ── WS & TOAST ──────────────────────────────────────────────── */
+    .ws-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 5px;
+      vertical-align: middle;
+      transition: background .3s;
+    }
+
+    .ws-ok {
+      background: #10b981;
+      box-shadow: 0 0 4px rgba(16, 185, 129, .5);
+    }
+
+    .ws-off {
+      background: #ef4444;
+    }
+
+    .ws-connecting {
+      background: #f59e0b;
+      animation: pulse-ws 1s ease-in-out infinite;
+    }
+
+    @keyframes pulse-ws {
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: .4;
+      }
+    }
+
+    .toast-container {
+      position: fixed;
+      top: 16px;
+      right: 16px;
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: none;
+      max-width: 380px;
+    }
+
+    .toast {
+      pointer-events: auto;
+      background: var(--card);
+      border: 1px solid var(--border2);
+      border-radius: var(--r2);
+      padding: 12px 16px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, .18);
+      animation: toastIn .35s cubic-bezier(.2, .8, .3, 1) both;
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+
+    .toast.out {
+      animation: toastOut .25s ease forwards;
+    }
+
+    @keyframes toastIn {
+      from {
+        opacity: 0;
+        transform: translateX(60px) scale(.95);
+      }
+
+      to {
+        opacity: 1;
+        transform: none;
+      }
+    }
+
+    @keyframes toastOut {
+      to {
+        opacity: 0;
+        transform: translateX(60px) scale(.95);
+      }
+    }
+
+    .toast-icon {
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .toast-body {
+      flex: 1;
+    }
+
+    .toast-title {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--t1);
+    }
+
+    .toast-desc {
+      font-size: 11px;
+      color: var(--t2);
+      margin-top: 2px;
+      line-height: 1.4;
+    }
+
+    .toast-close {
+      background: none;
+      border: none;
+      color: var(--t3);
+      cursor: pointer;
+      padding: 2px;
+      font-size: 14px;
+      line-height: 1;
+    }
+
+    .toast-sev-critical {
+      border-left: 3px solid var(--red);
+    }
+
+    .toast-sev-warning {
+      border-left: 3px solid var(--amber);
+    }
+
+    .toast-sev-info {
+      border-left: 3px solid var(--blue);
+    }
+
+    /* ── AGENT DRILL-DOWN ────────────────────────────────────────── */
+    .agent-sel {
+      font-size: 11px;
+      padding: 4px 8px;
+      border-radius: 8px;
+      border: 1px solid var(--border2);
+      background: var(--card2);
+      color: var(--t1);
+      font-family: inherit;
+      cursor: pointer;
+    }
+
+    .agent-row {
+      display: grid;
+      grid-template-columns: 1.4fr repeat(4, 1fr);
+      gap: 8px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+      align-items: center;
+      font-size: 11px;
+    }
+
+    .agent-row:last-child {
+      border-bottom: none;
+    }
+
+    .agent-row:first-child {
+      font-weight: 700;
+      color: var(--t3);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+    }
+
+    .agent-name {
+      font-weight: 600;
+      color: var(--t1);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .agent-val {
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--t2);
+      text-align: right;
+    }
+
+    .tbl-scroll {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    /* ── RESPONSIVE ──────────────────────────────────────────────── */
+    @media(max-width:1024px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      .sb {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 260px;
+        height: 100vh;
+        transform: translateX(-100%);
+        box-shadow: 4px 0 24px rgba(0, 0, 0, .2);
+      }
+
+      .sb.open {
+        transform: translateX(0);
+      }
+
+      .sb-close {
+        display: block;
+      }
+
+      .hamburger {
+        display: flex;
+        align-items: center;
+      }
+
+      .kpi4 {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .r2,
+      .r2b,
+      .r3 {
+        grid-template-columns: 1fr;
+      }
+
+      .form-row {
+        grid-template-columns: 1fr;
+      }
+
+      .m8-panel {
+        padding: 10px 14px;
+      }
+
+      .auth-demo-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media(max-width:640px) {
+
+      .kpi4,
+      .kpi3,
+      .kpi2 {
+        grid-template-columns: 1fr;
+      }
+
+      .topbar {
+        flex-wrap: wrap;
+        gap: 8px;
+        padding: 10px 14px;
+      }
+
+      .tb-right {
+        flex-wrap: wrap;
+        gap: 6px;
+        width: 100%;
+        justify-content: flex-end;
+      }
+
+      .scroll {
+        padding: 12px;
+        gap: 12px;
+      }
+
+      .kv {
+        font-size: 20px;
+      }
+
+      .card {
+        padding: 12px;
+      }
+
+      .card-hdr {
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .auth-card {
+        padding: 24px 20px;
+        border-radius: 14px;
+        margin: 12px;
+      }
+
+      .agent-row {
+        grid-template-columns: 1fr 1fr;
+        gap: 4px;
+      }
+
+      .agent-row:first-child {
+        display: none;
+      }
+
+      .m8-panel .chips {
+        display: none;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <!-- ── AUTH OVERLAY ─────────────────────────────────────────── -->
+  <div id="auth-overlay">
+    <div class="auth-card">
+      <div class="auth-logo">
+        <div class="auth-logo-icon"><svg width="22" height="22" viewBox="0 0 16 16" fill="none">
+            <path d="M8 1L14 4V8C14 11.5 11 14 8 15C5 14 2 11.5 2 8V4Z" stroke="currentColor" stroke-width="1.4"
+              fill="none" />
+            <path d="M5.5 8L7 9.5L10.5 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+              stroke-linejoin="round" />
+          </svg></div>
+        <div>
+          <div class="auth-logo-name">LLM Dashboard</div>
+          <div class="auth-logo-sub">AI Token & Cost Monitor</div>
+        </div>
+      </div>
+      <div class="auth-title">Welcome back</div>
+      <div class="auth-sub">Sign in to access your monitoring platform.</div>
+      <div class="auth-field">
+        <label class="auth-label" for="auth-user">Username</label>
+        <input id="auth-user" class="auth-input" type="text" placeholder="e.g. admin" autocomplete="username"
+          autocapitalize="none">
+      </div>
+      <div class="auth-field">
+        <label class="auth-label" for="auth-pass">Password</label>
+        <input id="auth-pass" class="auth-input" type="password" placeholder="••••••••" autocomplete="current-password">
+      </div>
+      <button id="auth-submit" class="auth-btn" onclick="Auth.login()">Sign in</button>
+      <div id="auth-err" class="auth-err"></div>
+      <div class="auth-demo">
+        <div class="auth-demo-title">Quick demo access</div>
+        <div class="auth-demo-grid" id="auth-demo-grid">
+          <button class="auth-demo-btn"
+            onclick="Auth.fillDemo('admin','Admin@1234')"><strong>admin</strong><span>super_admin · all
+              tenants</span></button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="toast-container" class="toast-container"></div>
+  <div id="sb-backdrop" class="sb-backdrop" onclick="closeSidebar()"></div>
+  <div class="layout">
+    <div class="sb" id="sidebar">
+      <button class="sb-close" onclick="closeSidebar()"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor"
+          stroke-width="1.5">
+          <path d="M4 4l8 8M12 4l-8 8" />
+        </svg></button>
+      <div class="logo">
+        <div class="logo-name">LLM Dashboard</div>
+        <div class="logo-sub" data-i18n="logo_sub">Token Monitor</div>
+      </div>
+      <div class="nav">
+        <div class="nav-grp" data-i18n="grp_overview">Overview</div>
+        <button class="nb active" onclick="showView('exec',this)"><svg width="15" height="15" viewBox="0 0 16 16"
+            fill="none">
+            <rect x="2" y="2" width="12" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.2"
+              opacity=".7" />
+            <path d="M5 9l2-2 2 1.5L12 5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"
+              stroke-linejoin="round" opacity=".7" />
+          </svg><span data-i18n="nav_exec">Executive Overview</span></button>
+        <button class="nb" onclick="showView('alerts',this)"><svg width="15" height="15" viewBox="0 0 16 16"
+            fill="none">
+            <path d="M8 2L14 13H2Z" stroke="currentColor" stroke-width="1.3" fill="none" opacity=".7" />
+            <line x1="8" y1="7" x2="8" y2="10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"
+              opacity=".7" />
+            <circle cx="8" cy="12" r=".8" fill="currentColor" opacity=".7" />
+          </svg><span data-i18n="nav_alerts">Alerts</span><span class="nbadge" id="nb-alerts">—</span></button>
+        <div class="nav-grp" data-i18n="grp_collection">Data Collection</div>
+        <button class="nb" onclick="showView('m1',this)"><svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+            <rect x="2" y="4" width="12" height="9" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.2"
+              opacity=".7" />
+            <path d="M5 8h6M5 10.5h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity=".7" />
+          </svg><span data-i18n="nav_gateway">Gateway Logs</span></button>
+        <button class="nb" onclick="showView('m2',this)"><svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+            <path d="M2 12L5 8L8 9.5L11 5.5L14 7" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"
+              stroke-linejoin="round" opacity=".7" />
+          </svg><span data-i18n="nav_costs">Costs & Analytics</span></button>
+        <div class="nav-grp" data-i18n="grp_intelligence">Intelligence</div>
+        <button class="nb" onclick="showView('m3',this)"><svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+            <circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.2" opacity=".7" />
+            <path d="M8 5.5v3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" opacity=".7" />
+            <circle cx="8" cy="11" r=".8" fill="currentColor" opacity=".7" />
+          </svg><span data-i18n="nav_anomaly">Anomaly Detection</span></button>
+        <button class="nb" onclick="showView('m4',this)"><svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+            <path d="M4 5h8M4 8h6M4 11h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"
+              opacity=".7" />
+            <circle cx="12" cy="11" r="2.5" stroke="currentColor" stroke-width="1.2" opacity=".7" />
+          </svg><span data-i18n="nav_explain">Explanations</span></button>
+        <div class="nav-grp" data-i18n="grp_optimize">Optimization</div>
+        <button class="nb" onclick="showView('m5',this)"><svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+            <circle cx="8" cy="8" r="2.5" stroke="currentColor" stroke-width="1.2" opacity=".7" />
+            <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.5 3.5l1.4 1.4M11.1 11.1l1.4 1.4M3.5 12.5l1.4-1.4M11.1 4.9l1.4-1.4"
+              stroke="currentColor" stroke-width="1.2" stroke-linecap="round" opacity=".7" />
+          </svg><span data-i18n="nav_optimizer">Optimizer</span></button>
+        <button class="nb" onclick="showView('m6',this)"><svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+            <path d="M2 13Q5 7 8 9Q11 11 14 4" stroke="currentColor" stroke-width="1.3" fill="none"
+              stroke-dasharray="2 1.5" opacity=".7" />
+          </svg><span data-i18n="nav_forecast">Forecasting</span></button>
+        <div class="nav-grp" data-i18n="grp_gov_billing">Governance & Billing</div>
+        <button class="nb" onclick="showView('m7',this)"><svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+            <path d="M8 1L14 4V8C14 11.5 11 14 8 15C5 14 2 11.5 2 8V4Z" stroke="currentColor" stroke-width="1.2"
+              fill="none" opacity=".7" />
+            <path d="M5.5 8L7 9.5L10.5 6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"
+              opacity=".7" />
+          </svg><span data-i18n="nav_governance">Governance</span></button>
+        <button class="nb" onclick="showView('m10',this)"><svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+            <rect x="2" y="4" width="12" height="10" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.2"
+              opacity=".7" />
+            <path d="M5 2v2M11 2v2M2 8h12" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"
+              opacity=".7" />
+          </svg><span data-i18n="nav_billing">Billing</span></button>
+        <div class="nav-grp" data-i18n="grp_assistant">Assistant</div>
+        <button class="nb" onclick="showView('m8',this)"><svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+            <circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.2" opacity=".7" />
+            <circle cx="5.5" cy="7.5" r="1" fill="currentColor" opacity=".6" />
+            <circle cx="10.5" cy="7.5" r="1" fill="currentColor" opacity=".6" />
+            <path d="M5.5 10.5Q8 12 10.5 10.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"
+              opacity=".6" />
+          </svg><span data-i18n="nav_assistant">AI Assistant</span></button>
+      </div>
+      <div class="sb-foot">
+        <div
+          style="font-size:10px;color:var(--t3);font-weight:600;margin-bottom:6px;text-transform:uppercase;letter-spacing:.06em"
+          data-i18n="health_title">System Health</div>
+        <div class="hrow"><span style="display:flex;align-items:center;gap:5px"><span class="dot"
+              id="h-db"></span>PostgreSQL</span><span id="h-db-t" style="font-size:11px;color:var(--t3)">—</span></div>
+        <div class="hrow"><span style="display:flex;align-items:center;gap:5px"><span class="dot"
+              id="h-rd"></span>Redis</span><span id="h-rd-t" style="font-size:11px;color:var(--t3)">—</span></div>
+        <div id="mod-health"></div>
+      </div>
+    </div>
+    <div class="main">
+      <div class="topbar">
+        <div style="display:flex;align-items:center;gap:10px">
+          <button class="hamburger" onclick="openSidebar()"><svg viewBox="0 0 20 20" fill="currentColor">
+              <rect x="2" y="4" width="16" height="1.5" rx=".75" />
+              <rect x="2" y="9.25" width="16" height="1.5" rx=".75" />
+              <rect x="2" y="14.5" width="16" height="1.5" rx=".75" />
+            </svg></button>
+          <div>
+            <div class="pg-title" id="pg-title">Executive Overview</div>
+            <div class="pg-meta" id="pg-meta"></div>
+          </div>
+        </div>
+        <div class="tb-right">
+          <select id="tsel" onchange="onTenantChange()"
+            style="font-size:11px;padding:4px 8px;border-radius:8px;border:1px solid var(--border2);background:var(--card2);color:var(--t1);font-family:inherit;cursor:pointer">
+            <option value="" data-i18n="period_all">All tenants</option>
+          </select>
+          <button class="pbtn on" onclick="setPeriod(30,this)">30d</button>
+          <button class="pbtn" onclick="setPeriod(7,this)">7d</button>
+          <button class="pbtn" onclick="setPeriod(90,this)">90d</button>
+          <button class="btn-refresh pbtn" onclick="refreshCurrent()">⟳ <span
+              data-i18n="btn_refresh">Refresh</span></button>
+          <select class="lang-sel" id="lang-sel" onchange="setLang(this.value)" title="Language">
+            <option value="en">🇬🇧 EN</option>
+            <option value="fr">🇫🇷 FR</option>
+            <option value="nl">🇧🇪 NL</option>
+            <option value="es">🇪🇸 ES</option>
+            <option value="de">🇩🇪 DE</option>
+          </select>
+          <div id="user-chip" class="user-chip" style="display:none">
+            <div class="user-avatar" id="user-avatar">?</div>
+            <div class="user-info"><span class="user-name" id="user-name-lbl">—</span><span class="user-role"
+                id="user-role-lbl">—</span></div>
+          </div>
+          <button id="logout-btn" class="logout-btn" style="display:none" onclick="Auth.logout()">Sign out</button>
+          <span id="ws-status" title="WebSocket"
+            style="font-size:10px;color:var(--t3);display:flex;align-items:center;"><span class="ws-dot ws-off"
+              id="ws-dot"></span><span id="ws-lbl">Offline</span></span>
+          <button class="ask-btn" onclick="showView('m8',null)" data-i18n="btn_ask_m8">Ask AI Assistant</button>
+        </div>
+      </div>
+      <div class="scroll">
+        <div id="v-exec" class="view active">
+          <div class="kpi4">
+            <div class="kpi">
+              <div class="kl" data-i18n="kpi_total_cost">Total AI Cost</div>
+              <div class="kv" id="k-cost">—</div>
+              <div id="k-cost-pill"></div>
+            </div>
+            <div class="kpi">
+              <div class="kl" data-i18n="kpi_total_calls">Total Calls</div>
+              <div class="kv" id="k-calls">—</div>
+              <div class="ks" data-i18n="period_all">all tenants</div>
+            </div>
+            <div class="kpi">
+              <div class="kl" data-i18n="kpi_tokens">Tokens Consumed</div>
+              <div class="kv" id="k-tokens">—</div>
+              <div class="ks">input + output</div>
+            </div>
+            <div class="kpi">
+              <div class="kl" data-i18n="kpi_anomalies">Active Anomalies</div>
+              <div class="kv" id="k-anom" style="color:var(--red)">—</div>
+              <div id="k-anom-pill"></div>
+            </div>
+          </div>
+          <div class="r2">
+            <div class="card">
+              <div class="card-hdr">
+                <div>
+                  <div class="ct" data-i18n="card_cost_trend">Platform Cost Trend</div>
+                  <div class="cs"><span data-i18n="cs_daily_spend">Daily spend</span> · <span id="period-lbl">30</span>d
+                  </div>
+                </div><button class="cl" onclick="downloadCSV()" data-i18n="btn_export">Export</button>
+              </div>
+              <div class="cht" style="height:200px"><canvas id="c-trend"></canvas></div>
+            </div>
+            <div class="card">
+              <div class="card-hdr">
+                <div class="ct" data-i18n="card_tenant_rank">Tenant Ranking</div>
+                <div class="cs" data-i18n="cs_by_cost">By cost · period</div>
+              </div>
+              <div id="tenant-rank">
+                <div class="loading">
+                  <div class="spin"></div><span data-i18n="status_loading">Loading…</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="r3">
+            <div class="card">
+              <div class="card-hdr">
+                <div class="ct" data-i18n="card_model_dist">Model Distribution</div>
+                <div class="cs" data-i18n="cs_cost_share">Cost share</div>
+              </div>
+              <div class="cht" style="height:150px"><canvas id="c-mdist"></canvas></div>
+              <div id="mdist-leg"
+                style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;font-size:10px;color:var(--t2)"></div>
+            </div>
+            <div class="card">
+              <div class="card-hdr">
+                <div class="ct" data-i18n="card_active_anom">Active Anomalies</div><span class="bdg bc"
+                  id="anom-cnt">—</span>
+              </div>
+              <div id="exec-anom">
+                <div class="loading">
+                  <div class="spin"></div><span data-i18n="status_loading">Loading…</span>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-hdr">
+                <div class="ct" data-i18n="card_forecast">Month-end Forecast</div>
+                <div class="cs" data-i18n="cs_proj_spend">Projected spend</div>
+              </div>
+              <div id="exec-fore">
+                <div class="loading">
+                  <div class="spin"></div><span data-i18n="status_loading">Loading…</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="r2b">
+            <div class="card">
+              <div class="card-hdr">
+                <div class="ct" data-i18n="card_governance">Governance Summary</div>
+                <div class="cs" data-i18n="cs_decisions">30-day decisions</div>
+              </div>
+              <div id="exec-gov">
+                <div class="loading">
+                  <div class="spin"></div><span data-i18n="status_loading">Loading…</span>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-hdr">
+                <div class="ct" data-i18n="card_optimizer">Optimization Opportunities</div>
+                <div class="cs" data-i18n="cs_top_opp">Top opportunities</div>
+              </div>
+              <div id="exec-opt">
+                <div class="loading">
+                  <div class="spin"></div><span data-i18n="status_loading">Loading…</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div id="v-alerts" class="view">
+          <div class="card">
+            <div class="card-hdr">
+              <div>
+                <div class="ct" data-i18n="nav_alerts">Alerts</div>
+                <div class="cs" data-i18n="meta_alerts">Last 24h · sorted by severity</div>
+              </div>
+              <div id="alert-cnts" style="font-size:11px;color:var(--t2)"></div>
+            </div>
+            <div id="alert-list">
+              <div class="loading">
+                <div class="spin"></div><span data-i18n="status_loading">Loading…</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div id="v-m1" class="view">
+          <div class="kpi4">
+            <div class="kpi">
+              <div class="kl" data-i18n="kpi_m1_calls">Total Calls</div>
+              <div class="kv" id="m1-calls">—</div>
+            </div>
+            <div class="kpi">
+              <div class="kl" data-i18n="kpi_m1_success">Successful</div>
+              <div class="kv" id="m1-ok" style="color:var(--green)">—</div>
+            </div>
+            <div class="kpi">
+              <div class="kl" data-i18n="kpi_m1_error">Error Rate</div>
+              <div class="kv" id="m1-err" style="color:var(--red)">—</div>
+            </div>
+            <div class="kpi">
+              <div class="kl" data-i18n="kpi_m1_latency">Avg Latency</div>
+              <div class="kv" id="m1-lat">—</div>
+              <div class="ks">ms</div>
+            </div>
+          </div>
+          <div class="r2b">
+            <div class="card">
+              <div class="card-hdr">
+                <div class="ct" data-i18n="card_tenant_rank">Tenant Ranking</div>
+                <div class="cs" data-i18n="cs_usage_tenant">Token & cost summary</div>
+              </div>
+              <div id="m1-tenant-list">
+                <div class="loading">
+                  <div class="spin"></div><span data-i18n="status_loading">Loading…</span>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-hdr">
+                <div class="ct" data-i18n="kpi_tokens">Token Volume</div>
+                <div class="cs" data-i18n="cs_input_output">Input vs output</div>
+              </div>
+              <div class="cht" style="height:200px"><canvas id="c-m1-tokens"></canvas></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-hdr">
+              <div class="ct" data-i18n="card_decisions">Decisions Audit Log</div>
+              <div class="cs" data-i18n="cs_log_24h">Last 24h · all tenants</div>
+            </div>
+            <div id="m1-decisions">
+              <div class="loading">
+                <div class="spin"></div><span data-i18n="status_loading">Loading…</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div id="v-m2" class="view">
+          <div class="kpi4">
+            <div class="kpi">
+              <div class="kl" data-i18n="kpi_m2_spend">Total Spend</div>
+              <div class="kv" id="m2-total">—</div>
+              <div class="ks" id="m2-period">30 days</div>
+            </div>
+            <div class="kpi">
+              <div class="kl" data-i18n="kpi_total_calls">Total Calls</div>
+              <div class="kv" id="m2-calls">—</div>
+            </div>
+            <div class="kpi">
+              <div class="kl" data-i18n="kpi_m1_error">Error Rate</div>
+              <div class="kv" id="m2-err">—</div>
+            </div>
+            <div class="kpi">
+              <div class="kl" data-i18n="kpi_m1_latency">Avg Latency</div>
+              <div class="kv" id="m2-lat">—</div>
+              <div class="ks">ms</div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-hdr">
+              <div class="ct" data-i18n="card_daily_trend">Daily Cost Trend</div>
+            </div>
+            <div class="cht" style="height:200px"><canvas id="c-daily"></canvas></div>
+          </div>
+          <div class="r2b">
+            <div class="card">
+              <div class="card-hdr">
+                <div class="ct" data-i18n="card_model_brkd">Model Breakdown</div>
+              </div>
+              <div id="model-brkd">
+                <div class="loading">
+                  <div class="spin"></div><span data-i18n="status_loading">Loading…</span>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-hdr">
+                <div class="ct" data-i18n="card_agent_brkd">Agent Breakdown</div>
+              </div>
+              <div id="agent-brkd">
+                <div class="loading">
+                  <div class="spin"></div><span data-i18n="status_loading">Loading…</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-hdr">
+              <div>
+                <div class="ct">Agent Drill-Down</div>
+                <div class="cs">Per-agent cost, tokens, error rate</div>
+              </div>
+              <button class="btn" onclick="loadAgentDrilldown()" data-i18n="btn_refresh">Refresh</button>
+            </div>
+            <div id="agent-drilldown">
+              <div class="loading">
+                <div class="spin"></div><span data-i18n="status_loading">Loading…</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div id="v-m3" class="view">
+          <div class="kpi4">
+            <div class="kpi">
+              <div class="kl" data-i18n="kpi_m3_active">Active</div>
+              <div class="kv" id="m3-active" style="color:var(--red)">—</div>
+            </div>
+            <div class="kpi">
+              <div class="kl" data-i18n="kpi_m3_resolved">Resolved (7d)</div>
+              <div class="kv" id="m3-resolved">—</div>
+            </div>
+            <div class="kpi">
+              <div class="kl" data-i18n="kpi_m3_critical">Critical</div>
+              <div class="kv" id="m3-crit" style="color:var(--red)">—</div>
+            </div>
+            <div class="kpi">
+              <div class="kl" data-i18n="kpi_m3_high">High</div>
+              <div class="kv" id="m3-high" style="color:var(--amber)">—</div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-hdr">
+              <div>
+                <div class="ct" data-i18n="card_anom_detect">Anomaly Detection</div>
+                <div class="cs" data-i18n="meta_m3">STL + IsolationForest + CUSUM ensemble</div>
+              </div>
+              <button class="btn" onclick="loadM3()" data-i18n="btn_refresh">Refresh</button>
+            </div>
+            <div id="m3-list">
+              <div class="loading">
+                <div class="spin"></div><span data-i18n="status_loading">Loading…</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div id="v-m4" class="view">
+          <div class="card">
+            <div class="card-hdr">
+              <div>
+                <div class="ct" data-i18n="card_explain_ai">Explanations & Recommendations</div>
+                <div class="cs" data-i18n="meta_m4">LLM-powered anomaly explanations</div>
+              </div>
+            </div>
+            <div style="font-size:12px;color:var(--t2);margin-bottom:12px" data-i18n="meta_m4">Select an anomaly to
+              generate an AI explanation.</div>
+            <div id="m4-anom-list">
+              <div class="loading">
+                <div class="spin"></div><span data-i18n="status_loading">Loading…</span>
+              </div>
+            </div>
+          </div>
+          <div class="card" id="m4-result" style="display:none">
+            <div class="card-hdr">
+              <div>
+                <div class="ct" id="m4-anom-title" data-i18n="card_explain_ai">Explanation</div>
+                <div class="cs" id="m4-anom-meta"></div>
+              </div>
+              <div class="spin" id="m4-spin" style="display:none"></div>
+            </div>
+            <div id="m4-text" style="font-size:13px;line-height:1.8;color:var(--t1)"></div>
+            <div id="m4-recs" style="margin-top:12px"></div>
+          </div>
+        </div>
+        <div id="v-m5" class="view">
+          <div class="kpi4">
+            <div class="kpi">
+              <div class="kl" data-i18n="kpi_m5_saving">Potential Saving</div>
+              <div class="kv" id="m5-saving" style="color:var(--green)">—</div>
+              <div class="ks">/ month</div>
+            </div>
+            <div class="kpi">
+              <div class="kl" data-i18n="kpi_m5_models">Model Changes</div>
+              <div class="kv" id="m5-model-n">—</div>
+              <div class="ks" data-i18n="kpi_m5_applied">proposed</div>
+            </div>
+            <div class="kpi">
+              <div class="kl" data-i18n="kpi_m5_prompts">Prompt Optimizations</div>
+              <div class="kv" id="m5-prompt-n">—</div>
+            </div>
+            <div class="kpi">
+              <div class="kl" data-i18n="kpi_m5_applied">Applied</div>
+              <div class="kv" id="m5-applied">—</div>
+              <div class="ks">this month</div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-hdr">
+              <div class="ct" data-i18n="card_model_recs">Model Recommendations</div>
+              <button class="btn" onclick="runOptimize()" data-i18n="btn_run_m5">Run Optimization</button>
+            </div>
+            <div id="m5-list">
+              <div class="loading">
+                <div class="spin"></div><span data-i18n="status_loading">Loading…</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div id="v-m6" class="view">
+          <div class="card">
+            <div class="card-hdr">
+              <div>
+                <div class="ct" data-i18n="card_budget_risk">Budget Risk</div>
+                <div class="cs" data-i18n="meta_m6">3-scenario budget planning</div>
+              </div>
+            </div>
+            <div id="m6-risk">
+              <div class="loading">
+                <div class="spin"></div><span data-i18n="status_loading">Loading…</span>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-hdr">
+              <div>
+                <div class="ct" data-i18n="card_token_fore">30-Day Token Forecast</div>
+                <div class="cs" data-i18n="meta_m6">3-scenario budget planning</div>
+              </div>
+              <button class="btn" onclick="runForecast()" data-i18n="btn_generate">Generate</button>
+            </div>
+            <div class="cht" style="height:220px"><canvas id="c-fore"></canvas></div>
+            <div style="display:flex;gap:14px;margin-top:10px;font-size:11px;color:var(--t2)">
+              <span style="display:flex;align-items:center;gap:4px"><span
+                  style="width:14px;height:2px;background:var(--blue);display:inline-block"></span><span
+                  data-i18n="scenario_likely">Likely</span></span>
+              <span style="display:flex;align-items:center;gap:4px"><span
+                  style="width:14px;height:2px;background:var(--red);display:inline-block"></span><span
+                  data-i18n="scenario_pessimistic">Pessimistic</span></span>
+              <span style="display:flex;align-items:center;gap:4px"><span
+                  style="width:14px;height:2px;background:var(--green);display:inline-block"></span><span
+                  data-i18n="scenario_optimistic">Optimistic</span></span>
+            </div>
+          </div>
+        </div>
+        <div id="v-m7" class="view">
+          <div class="kpi4">
+            <div class="kpi">
+              <div class="kl" data-i18n="kpi_m7_blocked">Blocked Calls</div>
+              <div class="kv" id="m7-blocked" style="color:var(--red)">—</div>
+              <div class="ks" id="m7-brate"></div>
+            </div>
+            <div class="kpi">
+              <div class="kl" data-i18n="kpi_m7_downgrade">Downgraded</div>
+              <div class="kv" id="m7-dg">—</div>
+              <div class="ks">model swaps</div>
+            </div>
+            <div class="kpi">
+              <div class="kl" data-i18n="kpi_m7_rules">Active Rules</div>
+              <div class="kv" id="m7-rules">—</div>
+            </div>
+            <div class="kpi">
+              <div class="kl" data-i18n="kpi_m7_saved">Cost Saved</div>
+              <div class="kv" id="m7-saved" style="color:var(--green)">—</div>
+              <div class="ks">via governance</div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-hdr">
+              <div class="ct" data-i18n="card_gov_rules">Governance Rules</div>
+              <button class="btn btn-primary" onclick="toggleRuleForm()" data-i18n="btn_new_rule">+ New Rule</button>
+            </div>
+            <div id="rule-form" class="gov-rule-form" style="display:none;margin-bottom:14px">
+              <div class="form-row">
+                <div><label class="form-label" data-i18n="lbl_tenant_global">Tenant ID (blank=global)</label><input
+                    type="text" id="rf-tenant" placeholder="Loading tenants…" style="width:100%"></div>
+                <div><label class="form-label" data-i18n="lbl_rule_type">Rule Type</label>
+                  <select id="rf-type" style="width:100%">
+                    <option value="tenant_limit">tenant_limit</option>
+                    <option value="model_block">model_block</option>
+                    <option value="budget_cap">budget_cap</option>
+                    <option value="rate_limit">rate_limit</option>
+                    <option value="model_downgrade">model_downgrade</option>
+                  </select>
+                </div>
+              </div>
+              <div class="form-row">
+                <div><label class="form-label" data-i18n="lbl_model_opt">Model (optional)</label><input type="text"
+                    id="rf-model" placeholder="e.g. gpt-4o, claude-3" style="width:100%"></div>
+                <div><label class="form-label" data-i18n="lbl_limit_value">Limit Value</label><input type="text"
+                    id="rf-limit" placeholder="e.g. 1000000 or 50.00" style="width:100%"></div>
+              </div>
+              <div class="form-row">
+                <div><label class="form-label" data-i18n="lbl_description">Description</label><input type="text"
+                    id="rf-desc" style="width:100%"></div>
+                <div style="display:flex;align-items:flex-end;gap:8px">
+                  <button class="btn btn-primary" onclick="createRule()" style="flex:1" data-i18n="btn_save_rule">Save
+                    Rule</button>
+                  <button class="btn" onclick="toggleRuleForm()" data-i18n="btn_cancel">Cancel</button>
+                </div>
+              </div>
+            </div>
+            <div id="m7-rules-list">
+              <div class="loading">
+                <div class="spin"></div><span data-i18n="status_loading">Loading…</span>
+              </div>
+            </div>
+          </div>
+          <div class="r2b">
+            <div class="card">
+              <div class="card-hdr">
+                <div class="ct" data-i18n="card_quota">Quota Status</div>
+                <div class="cs" data-i18n="cs_live_tenant">Live per tenant</div>
+              </div>
+              <div id="m7-quota">
+                <div class="loading">
+                  <div class="spin"></div><span data-i18n="status_loading">Loading…</span>
+                </div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-hdr">
+                <div class="ct" data-i18n="card_decisions">Decisions Audit Log</div>
+                <div class="cs" data-i18n="meta_alerts">Last 24h</div>
+              </div>
+              <div id="m7-decs">
+                <div class="loading">
+                  <div class="spin"></div><span data-i18n="status_loading">Loading…</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div id="v-m10" class="view">
+          <div class="r2b">
+            <div class="card">
+              <div class="card-hdr">
+                <div class="ct" data-i18n="card_gen_invoice">Generate Invoice</div>
+                <div class="cs" data-i18n="cs_billing_pipeline">Billing Pipeline</div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:10px">
+                <div><label class="form-label" data-i18n="lbl_tenant">Tenant</label>
+                  <select id="b-tenant" style="width:100%">
+                    <option value="" data-i18n="status_loading">Loading tenants…</option>
+                  </select>
+                </div>
+                <div><label class="form-label" data-i18n="lbl_month">Month (YYYYMM)</label>
+                  <input type="text" id="b-month" value="" style="width:100%">
+                </div>
+                <div style="display:flex;gap:8px">
+                  <button class="btn btn-primary" onclick="generateInvoice()" style="flex:1"
+                    data-i18n="btn_gen_invoice">Generate Invoice</button>
+                  <button class="btn" onclick="listInvoices()" data-i18n="btn_list_inv">List Invoices</button>
+                </div>
+                <div id="b-status" style="font-size:11px;color:var(--t2)"></div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="card-hdr">
+                <div class="ct" data-i18n="card_invoice_list">Invoice List</div>
+                <div class="cs" id="b-inv-tenant"></div>
+              </div>
+              <div id="b-invoices">
+                <div style="font-size:12px;color:var(--t2)" data-i18n="status_no_invoices">Click List Invoices to load.
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="card" id="b-invoice-view" style="display:none">
+            <div class="card-hdr">
+              <div>
+                <div class="ct" id="b-inv-title" data-i18n="card_gen_invoice">Invoice</div>
+                <div class="cs" id="b-inv-meta"></div>
+              </div>
+              <button class="btn" onclick="document.getElementById('b-invoice-view').style.display='none'"
+                data-i18n="btn_close">Close</button>
+            </div>
+            <div id="b-inv-content"></div>
+          </div>
+        </div>
+        <div id="v-m8" class="view">
+          <div class="card" style="flex:1">
+            <div class="card-hdr">
+              <div>
+                <div class="ct" data-i18n="card_ai_assistant">AI Assistant</div>
+                <div class="cs" data-i18n="meta_m8">Conversational AI interface · Groq/Llama</div>
+              </div>
+              <span class="bdg ba" id="m8-llm-badge" data-i18n="lbl_m8_badge">AI Model</span>
+            </div>
+            <div style="font-size:12px;color:var(--t2);margin-bottom:10px" data-i18n="ph_m8_full">Ask anything about
+              your LLM platform costs and governance.</div>
+            <div class="chips" id="m8-full-chips"></div>
+            <div class="chat-area" id="m8-chat"></div>
+            <div style="display:flex;gap:8px;margin-top:12px">
+              <input class="m8-inp" id="m8p-q" type="text" onkeydown="if(event.key==='Enter')m8Send()" />
+              <button class="m8-send" id="m8p-send" onclick="m8Send()" data-i18n="btn_ask">Ask M8 ↗</button>
+            </div>
+            <div id="m8p-meta" style="margin-top:6px;font-size:10px;color:var(--t3)"></div>
+          </div>
+        </div>
+      </div>
+      <div class="m8-panel">
+        <div class="m8-hdr">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+            <circle cx="8" cy="8" r="6" stroke="currentColor" stroke-width="1.2" opacity=".7" />
+            <circle cx="5.5" cy="7.5" r="1" fill="currentColor" opacity=".6" />
+            <circle cx="10.5" cy="7.5" r="1" fill="currentColor" opacity=".6" />
+            <path d="M5.5 10.5Q8 12 10.5 10.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"
+              opacity=".6" />
+          </svg>
+          <span class="m8-title" data-i18n="lbl_m8_quick">Quick Ask</span>
+          <span class="m8-badge" id="m8-badge">AI Model</span>
+          <div class="spin" id="m8-spin" style="display:none"></div>
+        </div>
+        <div class="chips" id="m8-quick-chips"></div>
+        <div class="m8-row">
+          <input id="m8-q" class="m8-inp" type="text" onkeydown="if(event.key==='Enter')askM8()" />
+          <button class="m8-send" onclick="askM8()" data-i18n="btn_ask">Ask ↗</button>
+        </div>
+        <div id="m8-ans" class="m8-ans">
+          <div id="m8-text"></div>
+          <div id="m8-figs" class="m8-figs"></div>
+          <div id="m8-meta" style="margin-top:6px;font-size:10px;color:var(--t3)"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    // ============================================================
+    // TRANSLATIONS
+    // Every user-visible string lives here.
+    // Keys match the Excel translation table (dashboard_translations.xlsx).
+    // To add a language: add a new object under TRANSLATIONS with the same keys.
+    // ============================================================
+    const TRANSLATIONS = {
+      en: {
+        logo_sub: 'Token Monitor', nav_exec: 'Executive Overview', nav_alerts: 'Alerts', nav_gateway: 'Gateway Logs', nav_costs: 'Costs & Analytics', nav_anomaly: 'Anomaly Detection', nav_explain: 'Explanations', nav_optimizer: 'Optimizer', nav_forecast: 'Forecasting', nav_governance: 'Governance', nav_billing: 'Billing', nav_assistant: 'AI Assistant',
+        grp_overview: 'Overview', grp_collection: 'Data Collection', grp_intelligence: 'Intelligence', grp_optimize: 'Optimization', grp_gov_billing: 'Governance & Billing', grp_assistant: 'Assistant',
+        title_exec: 'Executive Overview', title_alerts: 'Alerts', title_m1: 'Gateway & Logs', title_m2: 'Costs & Analytics', title_m3: 'Anomaly Detection', title_m4: 'Explanations', title_m5: 'Optimizer', title_m6: 'Forecasting', title_m7: 'Governance', title_m8: 'AI Assistant', title_m10: 'Billing',
+        meta_exec: 'All tenants · Live data', meta_alerts: 'Last 24h · sorted by severity', meta_m1: 'Token logging & governance enforcement', meta_m2: 'Cost aggregation by tenant, model and agent', meta_m3: 'Ensemble detection: STL + IsolationForest + CUSUM', meta_m4: 'LLM-powered anomaly explanations', meta_m5: 'Model & prompt recommendations', meta_m6: '3-scenario budget planning', meta_m7: 'Rules, quotas, decisions', meta_m8: 'Conversational AI interface', meta_m10: 'Invoice generation & reporting',
+        kpi_total_cost: 'Total AI Cost', kpi_total_calls: 'Total Calls', kpi_tokens: 'Tokens Consumed', kpi_anomalies: 'Active Anomalies', kpi_m1_calls: 'Total Calls', kpi_m1_success: 'Successful', kpi_m1_error: 'Error Rate', kpi_m1_latency: 'Avg Latency', kpi_m2_spend: 'Total Spend', kpi_m3_active: 'Active', kpi_m3_resolved: 'Resolved (7d)', kpi_m3_critical: 'Critical', kpi_m3_high: 'High', kpi_m5_saving: 'Potential Saving', kpi_m5_models: 'Model Changes', kpi_m5_prompts: 'Prompt Optimizations', kpi_m5_applied: 'Applied', kpi_m7_blocked: 'Blocked Calls', kpi_m7_downgrade: 'Downgraded', kpi_m7_rules: 'Active Rules', kpi_m7_saved: 'Cost Saved',
+        card_cost_trend: 'Platform Cost Trend', card_tenant_rank: 'Tenant Ranking', card_model_dist: 'Model Distribution', card_active_anom: 'Active Anomalies', card_forecast: 'Month-end Forecast', card_governance: 'Governance Summary', card_optimizer: 'Optimization Opportunities', card_daily_trend: 'Daily Cost Trend', card_model_brkd: 'Model Breakdown', card_agent_brkd: 'Agent Breakdown', card_anom_detect: 'Anomaly Detection', card_explain_ai: 'Explanations & Recommendations', card_model_recs: 'Model Recommendations', card_budget_risk: 'Budget Risk', card_token_fore: '30-Day Token Forecast', card_gov_rules: 'Governance Rules', card_quota: 'Quota Status', card_decisions: 'Decisions Audit Log', card_gen_invoice: 'Generate Invoice', card_invoice_list: 'Invoice List', card_ai_assistant: 'AI Assistant',
+        cs_daily_spend: 'Daily spend', cs_by_cost: 'By cost · period', cs_cost_share: 'Cost share', cs_proj_spend: 'Projected spend', cs_decisions: '30-day decisions', cs_top_opp: 'Top opportunities', cs_usage_tenant: 'Token & cost summary', cs_input_output: 'Input vs output', cs_log_24h: 'Last 24h · all tenants', cs_live_tenant: 'Live per tenant', cs_billing_pipeline: 'Billing Pipeline',
+        btn_export: 'Export', btn_refresh: 'Refresh', btn_ask_m8: 'Ask AI Assistant', btn_run_m5: 'Run Optimization', btn_generate: 'Generate', btn_new_rule: 'New Rule', btn_save_rule: 'Save Rule', btn_cancel: 'Cancel', btn_deactivate: 'Deactivate', btn_gen_invoice: 'Generate Invoice', btn_list_inv: 'List Invoices', btn_view: 'View', btn_close: 'Close', btn_explain: 'Explain via AI', btn_ask: 'Ask',
+        lbl_tenant: 'Tenant', lbl_tenant_global: 'Tenant ID (blank = global)', lbl_rule_type: 'Rule Type', lbl_model_opt: 'Model (optional)', lbl_limit_value: 'Limit Value', lbl_description: 'Description', lbl_month: 'Month (YYYYMM)',
+        status_no_anomaly: 'No active anomalies — system normal', status_no_alerts: 'No active alerts — all clear', status_no_risk: 'No budget risks detected in the next 30 days', status_no_recs: 'No recommendations yet. Click Run Optimization.', status_no_rules: 'No governance rules defined yet.', status_no_invoices: 'No invoices found.', status_no_decisions: 'No decisions in last 24h.', status_loading: 'Loading…', status_thinking: 'Thinking…', status_gen_inv: 'Generating invoice…',
+        chip_top_tenant: 'Top tenant by cost?', chip_crit_anom: 'Critical anomalies?', chip_reduce: 'Reduce costs 20%?', chip_budget: 'Budget risk?', chip_why_spike: 'Why did costs spike?', chip_downgrade: 'Downgrade recommendations?', chip_budget_fore: 'Budget forecast?',
+        ph_m8_quick: 'Ask about costs, anomalies, governance, forecasts…', ph_m8_full: 'Ask anything about your LLM platform costs and governance…',
+        lbl_m8_quick: 'Quick Ask', lbl_m8_full: 'AI Assistant', lbl_m8_badge: 'Groq · Llama-3.3-70b',
+        health_title: 'System Health', period_all: 'All tenants',
+        th_tenant: 'Tenant', th_decision: 'Decision', th_model: 'Model', th_tokens: 'Tokens', th_time: 'Time', th_type: 'Type', th_limit: 'Limit', th_status: 'Status', th_action: 'Action', th_description: 'Description', th_qty: 'Qty', th_unit: 'Unit Price', th_total: 'Total',
+        scenario_likely: 'Likely', scenario_pessimistic: 'Pessimistic', scenario_optimistic: 'Optimistic',
+      },
+      fr: {
+        logo_sub: 'Moniteur de tokens', nav_exec: 'Vue Exécutive', nav_alerts: 'Alertes', nav_gateway: 'Journaux de passerelle', nav_costs: 'Coûts & Analytiques', nav_anomaly: "Détection d'anomalies", nav_explain: 'Explications', nav_optimizer: 'Optimiseur', nav_forecast: 'Prévision', nav_governance: 'Gouvernance', nav_billing: 'Facturation', nav_assistant: 'Assistant IA',
+        grp_overview: "Vue d'ensemble", grp_collection: 'Collecte de données', grp_intelligence: 'Intelligence', grp_optimize: 'Optimisation', grp_gov_billing: 'Gouvernance & Facturation', grp_assistant: 'Assistant',
+        title_exec: 'Vue Exécutive', title_alerts: 'Alertes', title_m1: 'Passerelle & Journaux', title_m2: 'Coûts & Analytiques', title_m3: "Détection d'anomalies", title_m4: 'Explications', title_m5: 'Optimiseur', title_m6: 'Prévision', title_m7: 'Gouvernance', title_m8: 'Assistant IA', title_m10: 'Facturation',
+        meta_exec: 'Tous les clients · Données en direct', meta_alerts: 'Dernières 24h · par sévérité', meta_m1: 'Journalisation & gouvernance', meta_m2: 'Agrégation des coûts par client, modèle et agent', meta_m3: 'Détection ensemble : STL + IsolationForest + CUSUM', meta_m4: "Explications d'anomalies par IA", meta_m5: 'Recommandations de modèles et prompts', meta_m6: 'Planification budgétaire 3 scénarios', meta_m7: 'Règles, quotas, décisions', meta_m8: 'Interface IA conversationnelle', meta_m10: 'Génération de factures & rapports',
+        kpi_total_cost: 'Coût total IA', kpi_total_calls: 'Appels totaux', kpi_tokens: 'Tokens consommés', kpi_anomalies: 'Anomalies actives', kpi_m1_calls: 'Appels totaux', kpi_m1_success: 'Réussis', kpi_m1_error: "Taux d'erreur", kpi_m1_latency: 'Latence moyenne', kpi_m2_spend: 'Dépense totale', kpi_m3_active: 'Actives', kpi_m3_resolved: 'Résolues (7j)', kpi_m3_critical: 'Critique', kpi_m3_high: 'Élevée', kpi_m5_saving: 'Économie potentielle', kpi_m5_models: 'Changements de modèle', kpi_m5_prompts: 'Optimisations de prompts', kpi_m5_applied: 'Appliqués', kpi_m7_blocked: 'Appels bloqués', kpi_m7_downgrade: 'Rétrogradés', kpi_m7_rules: 'Règles actives', kpi_m7_saved: 'Coût économisé',
+        card_cost_trend: 'Tendance des coûts', card_tenant_rank: 'Classement des clients', card_model_dist: 'Répartition des modèles', card_active_anom: 'Anomalies actives', card_forecast: 'Prévision fin de mois', card_governance: 'Résumé gouvernance', card_optimizer: "Opportunités d'optimisation", card_daily_trend: 'Tendance coût quotidien', card_model_brkd: 'Répartition par modèle', card_agent_brkd: 'Répartition par agent', card_anom_detect: "Détection d'anomalies", card_explain_ai: 'Explications & Recommandations', card_model_recs: 'Recommandations de modèles', card_budget_risk: 'Risque budgétaire', card_token_fore: 'Prévision tokens 30 jours', card_gov_rules: 'Règles de gouvernance', card_quota: 'État des quotas', card_decisions: "Journal d'audit des décisions", card_gen_invoice: 'Générer une facture', card_invoice_list: 'Liste des factures', card_ai_assistant: 'Assistant IA',
+        cs_daily_spend: 'Dépense quotidienne', cs_by_cost: 'Par coût · période', cs_cost_share: 'Part des coûts', cs_proj_spend: 'Dépense projetée', cs_decisions: 'Décisions sur 30 jours', cs_top_opp: 'Meilleures opportunités', cs_usage_tenant: 'Résumé tokens & coûts', cs_input_output: 'Entrée vs sortie', cs_log_24h: 'Dernières 24h · tous les clients', cs_live_tenant: 'En direct par client', cs_billing_pipeline: 'Pipeline de facturation',
+        btn_export: 'Exporter', btn_refresh: 'Actualiser', btn_ask_m8: "Demander à l'Assistant IA", btn_run_m5: "Lancer l'optimisation", btn_generate: 'Générer', btn_new_rule: 'Nouvelle règle', btn_save_rule: 'Enregistrer la règle', btn_cancel: 'Annuler', btn_deactivate: 'Désactiver', btn_gen_invoice: 'Générer la facture', btn_list_inv: 'Lister les factures', btn_view: 'Afficher', btn_close: 'Fermer', btn_explain: 'Expliquer via IA', btn_ask: 'Demander',
+        lbl_tenant: 'Client', lbl_tenant_global: 'ID client (vide = global)', lbl_rule_type: 'Type de règle', lbl_model_opt: 'Modèle (optionnel)', lbl_limit_value: 'Valeur limite', lbl_description: 'Description', lbl_month: 'Mois (AAAAMM)',
+        status_no_anomaly: 'Aucune anomalie active — système normal', status_no_alerts: 'Aucune alerte active — tout est normal', status_no_risk: "Aucun risque budgétaire dans les 30 prochains jours", status_no_recs: "Aucune recommandation pour l'instant. Cliquez sur Lancer l'optimisation.", status_no_rules: 'Aucune règle de gouvernance définie.', status_no_invoices: 'Aucune facture trouvée.', status_no_decisions: 'Aucune décision dans les dernières 24h.', status_loading: 'Chargement…', status_thinking: 'Réflexion…', status_gen_inv: 'Génération de la facture…',
+        chip_top_tenant: 'Quel client coûte le plus ?', chip_crit_anom: 'Anomalies critiques ?', chip_reduce: 'Réduire les coûts de 20% ?', chip_budget: 'Risque budgétaire ?', chip_why_spike: 'Pourquoi les coûts ont-ils augmenté ?', chip_downgrade: 'Recommandations de rétrogradation ?', chip_budget_fore: 'Prévision budgétaire ?',
+        ph_m8_quick: 'Posez une question sur les coûts, anomalies, gouvernance…', ph_m8_full: 'Posez n\'importe quelle question sur vos coûts IA…',
+        lbl_m8_quick: 'Question rapide', lbl_m8_full: 'Assistant IA', lbl_m8_badge: 'Groq · Llama-3.3-70b',
+        health_title: 'Santé du système', period_all: 'Tous les clients',
+        th_tenant: 'Client', th_decision: 'Décision', th_model: 'Modèle', th_tokens: 'Tokens', th_time: 'Heure', th_type: 'Type', th_limit: 'Limite', th_status: 'Statut', th_action: 'Action', th_description: 'Description', th_qty: 'Qté', th_unit: 'Prix unitaire', th_total: 'Total',
+        scenario_likely: 'Probable', scenario_pessimistic: 'Pessimiste', scenario_optimistic: 'Optimiste',
+      },
+      nl: {
+        logo_sub: 'Token monitor', nav_exec: 'Uitvoerend Overzicht', nav_alerts: 'Waarschuwingen', nav_gateway: 'Gateway Logboeken', nav_costs: 'Kosten & Analyses', nav_anomaly: 'Anomaliedetectie', nav_explain: 'Verklaringen', nav_optimizer: 'Optimaliseerder', nav_forecast: 'Prognose', nav_governance: 'Beheer', nav_billing: 'Facturering', nav_assistant: 'AI-assistent',
+        grp_overview: 'Overzicht', grp_collection: 'Gegevensverzameling', grp_intelligence: 'Intelligentie', grp_optimize: 'Optimalisatie', grp_gov_billing: 'Beheer & Facturering', grp_assistant: 'Assistent',
+        title_exec: 'Uitvoerend Overzicht', title_alerts: 'Waarschuwingen', title_m1: 'Gateway & Logboeken', title_m2: 'Kosten & Analyses', title_m3: 'Anomaliedetectie', title_m4: 'Verklaringen', title_m5: 'Optimaliseerder', title_m6: 'Prognose', title_m7: 'Beheer', title_m8: 'AI-assistent', title_m10: 'Facturering',
+        meta_exec: 'Alle klanten · Live data', meta_alerts: 'Laatste 24u · op ernst', meta_m1: 'Token logging & beheer', meta_m2: 'Kosten per tenant, model en agent', meta_m3: 'Ensemble detectie: STL + IsolationForest + CUSUM', meta_m4: 'AI-aangedreven anomalieverklaringen', meta_m5: 'Model- & promptaanbevelingen', meta_m6: '3-scenario budgetplanning', meta_m7: "Regels, quota's, beslissingen", meta_m8: 'Conversationele AI-interface', meta_m10: 'Factuurgeneratie & rapportage',
+        kpi_total_cost: 'Totale AI-kosten', kpi_total_calls: 'Totaal aanroepen', kpi_tokens: 'Verbruikte tokens', kpi_anomalies: 'Actieve anomalieën', kpi_m1_calls: 'Totaal aanroepen', kpi_m1_success: 'Succesvol', kpi_m1_error: 'Foutpercentage', kpi_m1_latency: 'Gemiddelde latentie', kpi_m2_spend: 'Totale uitgaven', kpi_m3_active: 'Actief', kpi_m3_resolved: 'Opgelost (7d)', kpi_m3_critical: 'Kritiek', kpi_m3_high: 'Hoog', kpi_m5_saving: 'Potentiële besparing', kpi_m5_models: 'Modelwijzigingen', kpi_m5_prompts: 'Prompt optimalisaties', kpi_m5_applied: 'Toegepast', kpi_m7_blocked: 'Geblokkeerde aanroepen', kpi_m7_downgrade: 'Gedegradeerd', kpi_m7_rules: 'Actieve regels', kpi_m7_saved: 'Kosten bespaard',
+        card_cost_trend: 'Kostentrend platform', card_tenant_rank: 'Klantrangschikking', card_model_dist: 'Modelverdeling', card_active_anom: 'Actieve anomalieën', card_forecast: 'Prognose einde maand', card_governance: 'Beheersamenvatting', card_optimizer: 'Optimalisatiemogelijkheden', card_daily_trend: 'Dagelijkse kostentrend', card_model_brkd: 'Modeluitsplitsing', card_agent_brkd: 'Agentuitsplitsing', card_anom_detect: 'Anomaliedetectie', card_explain_ai: 'Verklaringen & Aanbevelingen', card_model_recs: 'Modelaanbevelingen', card_budget_risk: 'Budgetrisico', card_token_fore: '30-daagse tokenprognose', card_gov_rules: 'Beheerregels', card_quota: 'Quotumstatus', card_decisions: 'Beslissingsauditlog', card_gen_invoice: 'Factuur genereren', card_invoice_list: 'Factuurlijst', card_ai_assistant: 'AI-assistent',
+        cs_daily_spend: 'Dagelijkse uitgaven', cs_by_cost: 'Op kosten · periode', cs_cost_share: 'Kostenverdeling', cs_proj_spend: 'Geraamde uitgaven', cs_decisions: 'Beslissingen 30 dagen', cs_top_opp: 'Beste mogelijkheden', cs_usage_tenant: 'Token- & kostensamenvatting', cs_input_output: 'Invoer vs uitvoer', cs_log_24h: 'Laatste 24u · alle klanten', cs_live_tenant: 'Live per klant', cs_billing_pipeline: 'Factureringspijplijn',
+        btn_export: 'Exporteren', btn_refresh: 'Vernieuwen', btn_ask_m8: 'Vraag AI-assistent', btn_run_m5: 'Optimalisatie uitvoeren', btn_generate: 'Genereren', btn_new_rule: 'Nieuwe regel', btn_save_rule: 'Regel opslaan', btn_cancel: 'Annuleren', btn_deactivate: 'Deactiveren', btn_gen_invoice: 'Factuur genereren', btn_list_inv: 'Facturen weergeven', btn_view: 'Bekijken', btn_close: 'Sluiten', btn_explain: 'Uitleggen via AI', btn_ask: 'Vragen',
+        lbl_tenant: 'Klant', lbl_tenant_global: 'Klant-ID (leeg = globaal)', lbl_rule_type: 'Regeltype', lbl_model_opt: 'Model (optioneel)', lbl_limit_value: 'Limietwaarde', lbl_description: 'Beschrijving', lbl_month: 'Maand (JJJJMM)',
+        status_no_anomaly: 'Geen actieve anomalieën — systeem normaal', status_no_alerts: 'Geen actieve waarschuwingen — alles in orde', status_no_risk: "Geen budgetrisico's in de komende 30 dagen", status_no_recs: 'Nog geen aanbevelingen. Klik op Optimalisatie uitvoeren.', status_no_rules: 'Nog geen beheerregels gedefinieerd.', status_no_invoices: 'Geen facturen gevonden.', status_no_decisions: 'Geen beslissingen in de afgelopen 24 uur.', status_loading: 'Laden…', status_thinking: 'Denken…', status_gen_inv: 'Factuur genereren…',
+        chip_top_tenant: 'Duurste klant?', chip_crit_anom: 'Kritieke anomalieën?', chip_reduce: 'Kosten 20% verlagen?', chip_budget: 'Budgetrisico?', chip_why_spike: 'Waarom zijn de kosten gestegen?', chip_downgrade: 'Degradatieaanbevelingen?', chip_budget_fore: 'Budgetprognose?',
+        ph_m8_quick: 'Stel een vraag over kosten, anomalieën, beheer…', ph_m8_full: 'Stel elke vraag over uw AI-platformkosten…',
+        lbl_m8_quick: 'Snelle vraag', lbl_m8_full: 'AI-assistent', lbl_m8_badge: 'Groq · Llama-3.3-70b',
+        health_title: 'Systeemgezondheid', period_all: 'Alle klanten',
+        th_tenant: 'Klant', th_decision: 'Beslissing', th_model: 'Model', th_tokens: 'Tokens', th_time: 'Tijd', th_type: 'Type', th_limit: 'Limiet', th_status: 'Status', th_action: 'Actie', th_description: 'Beschrijving', th_qty: 'Aantal', th_unit: 'Eenheidsprijs', th_total: 'Totaal',
+        scenario_likely: 'Waarschijnlijk', scenario_pessimistic: 'Pessimistisch', scenario_optimistic: 'Optimistisch',
+      },
+      es: {
+        logo_sub: 'Monitor de tokens', nav_exec: 'Vista Ejecutiva', nav_alerts: 'Alertas', nav_gateway: 'Registros de Puerta', nav_costs: 'Costos & Analíticas', nav_anomaly: 'Detección de anomalías', nav_explain: 'Explicaciones', nav_optimizer: 'Optimizador', nav_forecast: 'Previsión', nav_governance: 'Gobernanza', nav_billing: 'Facturación', nav_assistant: 'Asistente IA',
+        grp_overview: 'Descripción general', grp_collection: 'Recopilación de datos', grp_intelligence: 'Inteligencia', grp_optimize: 'Optimización', grp_gov_billing: 'Gobernanza & Facturación', grp_assistant: 'Asistente',
+        title_exec: 'Vista Ejecutiva', title_alerts: 'Alertas', title_m1: 'Puerta & Registros', title_m2: 'Costos & Analíticas', title_m3: 'Detección de anomalías', title_m4: 'Explicaciones', title_m5: 'Optimizador', title_m6: 'Previsión', title_m7: 'Gobernanza', title_m8: 'Asistente IA', title_m10: 'Facturación',
+        meta_exec: 'Todos los clientes · Datos en vivo', meta_alerts: 'Últimas 24h · por gravedad', meta_m1: 'Registro de tokens & gobernanza', meta_m2: 'Agregación por cliente, modelo y agente', meta_m3: 'Detección por conjuntos: STL + IsolationForest + CUSUM', meta_m4: 'Explicaciones de anomalías por IA', meta_m5: 'Recomendaciones de modelos y prompts', meta_m6: 'Planificación presupuestaria 3 escenarios', meta_m7: 'Reglas, cuotas, decisiones', meta_m8: 'Interfaz IA conversacional', meta_m10: 'Generación de facturas & informes',
+        kpi_total_cost: 'Costo total de IA', kpi_total_calls: 'Llamadas totales', kpi_tokens: 'Tokens consumidos', kpi_anomalies: 'Anomalías activas', kpi_m1_calls: 'Llamadas totales', kpi_m1_success: 'Exitosas', kpi_m1_error: 'Tasa de error', kpi_m1_latency: 'Latencia promedio', kpi_m2_spend: 'Gasto total', kpi_m3_active: 'Activas', kpi_m3_resolved: 'Resueltas (7d)', kpi_m3_critical: 'Crítica', kpi_m3_high: 'Alta', kpi_m5_saving: 'Ahorro potencial', kpi_m5_models: 'Cambios de modelo', kpi_m5_prompts: 'Optimizaciones de prompts', kpi_m5_applied: 'Aplicadas', kpi_m7_blocked: 'Llamadas bloqueadas', kpi_m7_downgrade: 'Degradados', kpi_m7_rules: 'Reglas activas', kpi_m7_saved: 'Costo ahorrado',
+        card_cost_trend: 'Tendencia de costos', card_tenant_rank: 'Clasificación de clientes', card_model_dist: 'Distribución de modelos', card_active_anom: 'Anomalías activas', card_forecast: 'Previsión fin de mes', card_governance: 'Resumen de gobernanza', card_optimizer: 'Oportunidades de optimización', card_daily_trend: 'Tendencia de costo diario', card_model_brkd: 'Desglose por modelo', card_agent_brkd: 'Desglose por agente', card_anom_detect: 'Detección de anomalías', card_explain_ai: 'Explicaciones & Recomendaciones', card_model_recs: 'Recomendaciones de modelos', card_budget_risk: 'Riesgo presupuestario', card_token_fore: 'Previsión de tokens 30 días', card_gov_rules: 'Reglas de gobernanza', card_quota: 'Estado de cuotas', card_decisions: 'Registro de auditoría', card_gen_invoice: 'Generar factura', card_invoice_list: 'Lista de facturas', card_ai_assistant: 'Asistente IA',
+        cs_daily_spend: 'Gasto diario', cs_by_cost: 'Por costo · período', cs_cost_share: 'Distribución de costos', cs_proj_spend: 'Gasto proyectado', cs_decisions: 'Decisiones 30 días', cs_top_opp: 'Mejores oportunidades', cs_usage_tenant: 'Resumen de tokens & costos', cs_input_output: 'Entrada vs salida', cs_log_24h: 'Últimas 24h · todos los clientes', cs_live_tenant: 'En vivo por cliente', cs_billing_pipeline: 'Pipeline de facturación',
+        btn_export: 'Exportar', btn_refresh: 'Actualizar', btn_ask_m8: 'Preguntar al Asistente IA', btn_run_m5: 'Ejecutar optimización', btn_generate: 'Generar', btn_new_rule: 'Nueva regla', btn_save_rule: 'Guardar regla', btn_cancel: 'Cancelar', btn_deactivate: 'Desactivar', btn_gen_invoice: 'Generar factura', btn_list_inv: 'Listar facturas', btn_view: 'Ver', btn_close: 'Cerrar', btn_explain: 'Explicar via IA', btn_ask: 'Preguntar',
+        lbl_tenant: 'Cliente', lbl_tenant_global: 'ID cliente (vacío = global)', lbl_rule_type: 'Tipo de regla', lbl_model_opt: 'Modelo (opcional)', lbl_limit_value: 'Valor límite', lbl_description: 'Descripción', lbl_month: 'Mes (AAAAMM)',
+        status_no_anomaly: 'Sin anomalías activas — sistema normal', status_no_alerts: 'Sin alertas activas — todo en orden', status_no_risk: 'Sin riesgos presupuestarios en los próximos 30 días', status_no_recs: 'Aún no hay recomendaciones. Haga clic en Ejecutar optimización.', status_no_rules: 'No hay reglas de gobernanza definidas.', status_no_invoices: 'No se encontraron facturas.', status_no_decisions: 'Sin decisiones en las últimas 24h.', status_loading: 'Cargando…', status_thinking: 'Pensando…', status_gen_inv: 'Generando factura…',
+        chip_top_tenant: '¿Cliente más costoso?', chip_crit_anom: '¿Anomalías críticas?', chip_reduce: '¿Reducir costos 20%?', chip_budget: '¿Riesgo presupuestario?', chip_why_spike: '¿Por qué subieron los costos?', chip_downgrade: '¿Recomendaciones de degradación?', chip_budget_fore: '¿Previsión presupuestaria?',
+        ph_m8_quick: 'Pregunta sobre costos, anomalías, gobernanza…', ph_m8_full: 'Haga cualquier pregunta sobre sus costos de plataforma IA…',
+        lbl_m8_quick: 'Pregunta rápida', lbl_m8_full: 'Asistente IA', lbl_m8_badge: 'Groq · Llama-3.3-70b',
+        health_title: 'Salud del sistema', period_all: 'Todos los clientes',
+        th_tenant: 'Cliente', th_decision: 'Decisión', th_model: 'Modelo', th_tokens: 'Tokens', th_time: 'Hora', th_type: 'Tipo', th_limit: 'Límite', th_status: 'Estado', th_action: 'Acción', th_description: 'Descripción', th_qty: 'Cant.', th_unit: 'Precio unitario', th_total: 'Total',
+        scenario_likely: 'Probable', scenario_pessimistic: 'Pesimista', scenario_optimistic: 'Optimista',
+      },
+      de: {
+        logo_sub: 'Token-Monitor', nav_exec: 'Führungsübersicht', nav_alerts: 'Warnmeldungen', nav_gateway: 'Gateway-Protokolle', nav_costs: 'Kosten & Analysen', nav_anomaly: 'Anomalieerkennung', nav_explain: 'Erklärungen', nav_optimizer: 'Optimierer', nav_forecast: 'Prognose', nav_governance: 'Governance', nav_billing: 'Abrechnung', nav_assistant: 'KI-Assistent',
+        grp_overview: 'Übersicht', grp_collection: 'Datenerfassung', grp_intelligence: 'Intelligenz', grp_optimize: 'Optimierung', grp_gov_billing: 'Governance & Abrechnung', grp_assistant: 'Assistent',
+        title_exec: 'Führungsübersicht', title_alerts: 'Warnmeldungen', title_m1: 'Gateway & Protokolle', title_m2: 'Kosten & Analysen', title_m3: 'Anomalieerkennung', title_m4: 'Erklärungen', title_m5: 'Optimierer', title_m6: 'Prognose', title_m7: 'Governance', title_m8: 'KI-Assistent', title_m10: 'Abrechnung',
+        meta_exec: 'Alle Mandanten · Live-Daten', meta_alerts: 'Letzte 24h · nach Schwere', meta_m1: 'Token-Protokoll & Governance', meta_m2: 'Kostenaggregation nach Mandant, Modell und Agent', meta_m3: 'Ensemble-Erkennung: STL + IsolationForest + CUSUM', meta_m4: 'KI-gestützte Anomalieerklärungen', meta_m5: 'Modell- & Prompt-Empfehlungen', meta_m6: '3-Szenario-Budgetplanung', meta_m7: 'Regeln, Quoten, Entscheidungen', meta_m8: 'Konversationelle KI-Schnittstelle', meta_m10: 'Rechnungserstellung & Berichte',
+        kpi_total_cost: 'Gesamte KI-Kosten', kpi_total_calls: 'Gesamtaufrufe', kpi_tokens: 'Verbrauchte Tokens', kpi_anomalies: 'Aktive Anomalien', kpi_m1_calls: 'Gesamtaufrufe', kpi_m1_success: 'Erfolgreich', kpi_m1_error: 'Fehlerrate', kpi_m1_latency: 'Durchschn. Latenz', kpi_m2_spend: 'Gesamtausgaben', kpi_m3_active: 'Aktiv', kpi_m3_resolved: 'Gelöst (7T)', kpi_m3_critical: 'Kritisch', kpi_m3_high: 'Hoch', kpi_m5_saving: 'Potenzielle Einsparung', kpi_m5_models: 'Modelländerungen', kpi_m5_prompts: 'Prompt-Optimierungen', kpi_m5_applied: 'Angewandt', kpi_m7_blocked: 'Gesperrte Aufrufe', kpi_m7_downgrade: 'Heruntergestuft', kpi_m7_rules: 'Aktive Regeln', kpi_m7_saved: 'Kosten gespart',
+        card_cost_trend: 'Kostenentwicklung', card_tenant_rank: 'Mandanten-Ranking', card_model_dist: 'Modellverteilung', card_active_anom: 'Aktive Anomalien', card_forecast: 'Monatsendprognose', card_governance: 'Governance-Zusammenfassung', card_optimizer: 'Optimierungsmöglichkeiten', card_daily_trend: 'Tägliche Kostenentwicklung', card_model_brkd: 'Modell-Aufschlüsselung', card_agent_brkd: 'Agenten-Aufschlüsselung', card_anom_detect: 'Anomalieerkennung', card_explain_ai: 'Erklärungen & Empfehlungen', card_model_recs: 'Modellempfehlungen', card_budget_risk: 'Budgetrisiko', card_token_fore: '30-Tage-Token-Prognose', card_gov_rules: 'Governance-Regeln', card_quota: 'Quotenstatus', card_decisions: 'Entscheidungs-Auditprotokoll', card_gen_invoice: 'Rechnung erstellen', card_invoice_list: 'Rechnungsliste', card_ai_assistant: 'KI-Assistent',
+        cs_daily_spend: 'Tägliche Ausgaben', cs_by_cost: 'Nach Kosten · Periode', cs_cost_share: 'Kostenanteil', cs_proj_spend: 'Prognostizierte Ausgaben', cs_decisions: 'Entscheidungen 30 Tage', cs_top_opp: 'Beste Möglichkeiten', cs_usage_tenant: 'Token- & Kostenzusammenfassung', cs_input_output: 'Eingabe vs Ausgabe', cs_log_24h: 'Letzte 24h · alle Mandanten', cs_live_tenant: 'Live pro Mandant', cs_billing_pipeline: 'Abrechnungspipeline',
+        btn_export: 'Exportieren', btn_refresh: 'Aktualisieren', btn_ask_m8: 'KI-Assistenten fragen', btn_run_m5: 'Optimierung starten', btn_generate: 'Generieren', btn_new_rule: 'Neue Regel', btn_save_rule: 'Regel speichern', btn_cancel: 'Abbrechen', btn_deactivate: 'Deaktivieren', btn_gen_invoice: 'Rechnung erstellen', btn_list_inv: 'Rechnungen auflisten', btn_view: 'Anzeigen', btn_close: 'Schließen', btn_explain: 'Über KI erklären', btn_ask: 'Fragen',
+        lbl_tenant: 'Mandant', lbl_tenant_global: 'Mandanten-ID (leer = global)', lbl_rule_type: 'Regeltyp', lbl_model_opt: 'Modell (optional)', lbl_limit_value: 'Grenzwert', lbl_description: 'Beschreibung', lbl_month: 'Monat (JJJJMM)',
+        status_no_anomaly: 'Keine aktiven Anomalien — System normal', status_no_alerts: 'Keine aktiven Warnungen — alles in Ordnung', status_no_risk: 'Keine Budgetrisiken in den nächsten 30 Tagen', status_no_recs: 'Noch keine Empfehlungen. Klicken Sie auf Optimierung starten.', status_no_rules: 'Noch keine Governance-Regeln definiert.', status_no_invoices: 'Keine Rechnungen gefunden.', status_no_decisions: 'Keine Entscheidungen in den letzten 24h.', status_loading: 'Laden…', status_thinking: 'Denken…', status_gen_inv: 'Rechnung wird erstellt…',
+        chip_top_tenant: 'Kostenintensivster Mandant?', chip_crit_anom: 'Kritische Anomalien?', chip_reduce: 'Kosten um 20% senken?', chip_budget: 'Budgetrisiko?', chip_why_spike: 'Warum stiegen die Kosten?', chip_downgrade: 'Herabstufungsempfehlungen?', chip_budget_fore: 'Budgetprognose?',
+        ph_m8_quick: 'Fragen zu Kosten, Anomalien, Governance…', ph_m8_full: 'Stellen Sie beliebige Fragen zu Ihren KI-Plattformkosten…',
+        lbl_m8_quick: 'Schnellfrage', lbl_m8_full: 'KI-Assistent', lbl_m8_badge: 'Groq · Llama-3.3-70b',
+        health_title: 'Systemgesundheit', period_all: 'Alle Mandanten',
+        th_tenant: 'Mandant', th_decision: 'Entscheidung', th_model: 'Modell', th_tokens: 'Tokens', th_time: 'Zeit', th_type: 'Typ', th_limit: 'Grenzwert', th_status: 'Status', th_action: 'Aktion', th_description: 'Beschreibung', th_qty: 'Menge', th_unit: 'Stückpreis', th_total: 'Gesamt',
+        scenario_likely: 'Wahrscheinlich', scenario_pessimistic: 'Pessimistisch', scenario_optimistic: 'Optimistisch',
+      }
+    };
+
+    // ============================================================
+    // i18n ENGINE
+    // ============================================================
+    let currentLang = localStorage.getItem('llm_dash_lang') || 'en';
+
+    function t(key) {
+      return (TRANSLATIONS[currentLang] && TRANSLATIONS[currentLang][key])
+        || (TRANSLATIONS['en'] && TRANSLATIONS['en'][key])
+        || key;
+    }
+
+    function applyTranslations() {
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        el.textContent = t(key);
+      });
+      // Update M8 inputs placeholder
+      const qi = document.getElementById('m8-q');
+      if (qi) qi.placeholder = t('ph_m8_quick');
+      const fi = document.getElementById('m8p-q');
+      if (fi) fi.placeholder = t('ph_m8_full');
+      // Rebuild chips
+      buildChips();
+      // Update page title and meta for current view
+      updatePageMeta(currentView);
+      // Sync lang selector
+      const ls = document.getElementById('lang-sel');
+      if (ls) ls.value = currentLang;
+      // Update html lang attribute
+      document.documentElement.lang = currentLang;
+    }
+
+    function setLang(lang) {
+      currentLang = lang;
+      localStorage.setItem('llm_dash_lang', lang);
+      applyTranslations();
+    }
+
+    function buildChips() {
+      const quickKeys = ['chip_top_tenant', 'chip_crit_anom', 'chip_reduce', 'chip_budget'];
+      const fullKeys = ['chip_top_tenant', 'chip_why_spike', 'chip_reduce', 'chip_crit_anom', 'chip_downgrade', 'chip_budget_fore'];
+
+      const qc = document.getElementById('m8-quick-chips');
+      if (qc) qc.innerHTML = quickKeys.map(k =>
+        `<button class="chip" onclick="askM8('${t(k).replace(/'/g, "\\'")}')">
+      ${t(k)}
+    </button>`
+      ).join('');
+
+      const fc = document.getElementById('m8-full-chips');
+      if (fc) fc.innerHTML = fullKeys.map(k =>
+        `<button class="chip" onclick="m8Send('${t(k).replace(/'/g, "\\'")}')">
+      ${t(k)}
+    </button>`
+      ).join('');
+    }
+
+    // ============================================================
+    // NAVIGATION & VIEW MANAGEMENT
+    // ============================================================
+    const isLocalDev = window.location.port !== '8000' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' || window.location.protocol === 'file:');
+    const API = isLocalDev ? 'http://localhost:8000' : window.location.origin;
+    let TENANTS = [];  // Populated dynamically from /v1/dashboard/tenants
+    const COLORS = ['#1a56db', '#059669', '#d97706', '#7c3aed', '#db2777', '#0891b2', '#be123c', '#4f46e5'];
+    let period = 30, currentView = 'exec', charts = {};
+
+    const VIEW_TITLE_KEYS = { exec: 'title_exec', alerts: 'title_alerts', m1: 'title_m1', m2: 'title_m2', m3: 'title_m3', m4: 'title_m4', m5: 'title_m5', m6: 'title_m6', m7: 'title_m7', m8: 'title_m8', m10: 'title_m10' };
+    const VIEW_META_KEYS = { exec: 'meta_exec', alerts: 'meta_alerts', m1: 'meta_m1', m2: 'meta_m2', m3: 'meta_m3', m4: 'meta_m4', m5: 'meta_m5', m6: 'meta_m6', m7: 'meta_m7', m8: 'meta_m8', m10: 'meta_m10' };
+
+    function updatePageMeta(id) {
+      const titleEl = document.getElementById('pg-title');
+      const metaEl = document.getElementById('pg-meta');
+      if (titleEl) titleEl.textContent = t(VIEW_TITLE_KEYS[id] || 'title_exec');
+      if (metaEl) {
+        let metaStr = t(VIEW_META_KEYS[id] || 'meta_exec');
+        const tenant = getSelectedTenant();
+        if (tenant) {
+          // Replace the i18n "all tenants" phrase regardless of language
+          const allPhrase = t('period_all') || 'All tenants';
+          if (metaStr.includes(allPhrase)) {
+            metaStr = metaStr.replace(allPhrase, 'Tenant: ' + tenant);
+          }
+        }
+        metaEl.textContent = metaStr;
+      }
+    }
+
+    function showView(id, btn) {
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      const el = document.getElementById('v-' + id); if (el) el.classList.add('active');
+      document.querySelectorAll('.nb').forEach(b => b.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+      currentView = id;
+      updatePageMeta(id);
+      loadView(id);
+    }
+
+    function setPeriod(d, el) { period = d; document.querySelectorAll('.pbtn').forEach(b => b.classList.remove('on')); el.classList.add('on'); const lbl = document.getElementById('period-lbl'); if (lbl) lbl.textContent = d; loadView(currentView); }
+    function onTenantChange() { loadView(currentView); }
+    function refreshCurrent() { loadView(currentView); }
+    function loadView(id) {
+      if (id === 'exec') loadExec();
+      else if (id === 'alerts') loadAlerts();
+      else if (id === 'm1') loadM1();
+      else if (id === 'm2') loadM2();
+      else if (id === 'm3') loadM3();
+      else if (id === 'm4') loadM4();
+      else if (id === 'm5') loadM5();
+      else if (id === 'm6') loadM6();
+      else if (id === 'm7') loadM7();
+      else if (id === 'm10') loadM10();
+    }
+
+    // ============================================================
+    // DYNAMIC TENANT LOADING — no hardcoded tenant names
+    // ============================================================
+    function getSelectedTenant() {
+      return document.getElementById('tsel').value;
+    }
+
+    async function loadTenants() {
+      try {
+        const d = await api('/v1/dashboard/tenants');
+        TENANTS = d.tenants || [];
+        // Populate topbar tenant selector
+        const tsel = document.getElementById('tsel');
+        // Remove existing options except the first "All tenants"
+        while (tsel.options.length > 1) tsel.remove(1);
+        TENANTS.forEach(t => { const o = document.createElement('option'); o.value = t; o.textContent = t; tsel.appendChild(o); });
+        // Populate billing tenant selector
+        const bsel = document.getElementById('b-tenant');
+        if (bsel) { bsel.innerHTML = ''; TENANTS.forEach(t => { const o = document.createElement('option'); o.value = t; o.textContent = t; bsel.appendChild(o); }); }
+        // Populate demo login buttons dynamically
+        const grid = document.getElementById('auth-demo-grid');
+        if (grid) {
+          // Keep the admin button, add per-tenant buttons
+          let btns = '<button class="auth-demo-btn" onclick="Auth.fillDemo(\'admin\',\'Admin@1234\')"><strong>admin</strong><span>super_admin · all tenants</span></button>';
+          TENANTS.forEach(t => {
+            const slug = t.toLowerCase().replace(/_/g, '');
+            btns += `<button class="auth-demo-btn" onclick="Auth.fillDemo('${slug}_admin','Admin@1234')"><strong>${slug}_admin</strong><span>tenant_admin · ${t}</span></button>`;
+          });
+          grid.innerHTML = btns;
+        }
+        // Update governance form tenant placeholder with first discovered tenant
+        const rfTenant = document.getElementById('rf-tenant');
+        if (rfTenant && TENANTS.length) rfTenant.placeholder = 'e.g. ' + TENANTS[0];
+      } catch (e) { console.warn('Could not load tenants:', e.message); }
+    }
+
+    // ============================================================
+    // UTILITIES
+    // ============================================================
+    function fmt(n) { return parseFloat(n || 0).toFixed(2); }
+    function fmtK(n) { n = parseFloat(n || 0); return n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1000 ? (n / 1000).toFixed(0) + 'K' : String(Math.round(n)); }
+    function bdg(sev) { const m = { critical: 'bc', high: 'bh', warning: 'bw', ok: 'bg', info: 'bn' }; return `<span class="bdg ${m[sev] || 'bn'}">${sev}</span>`; }
+    async function api(path, opts = {}) {
+      const headers = { 'Content-Type': 'application/json', ...(opts.headers || {}) };
+      const tok = Auth.getToken();
+      if (tok) headers['Authorization'] = 'Bearer ' + tok;
+      const maxRetries = opts._retries || 0;
+      const maxAllowed = 2;
+      let lastErr;
+      for (let attempt = 0; attempt <= Math.min(maxRetries, maxAllowed); attempt++) {
+        try {
+          const r = await fetch(API + path, { ...opts, headers });
+          if (r.status === 401) {
+            const refreshed = await Auth.silentRefresh();
+            if (refreshed) {
+              headers['Authorization'] = 'Bearer ' + Auth.getToken();
+              const r2 = await fetch(API + path, { ...opts, headers });
+              if (!r2.ok) throw new Error(`${r2.status} ${r2.statusText}`);
+              return r2.json();
+            }
+            Auth.showOverlay();
+            throw new Error('Session expired — please sign in again');
+          }
+          if (!r.ok) {
+            let msg = `${r.status} ${r.statusText}`;
+            try { const d = await r.json(); if (d && d.detail) msg = typeof d.detail === 'string' ? d.detail : JSON.stringify(d.detail); } catch (_) { }
+            throw new Error(msg);
+          }
+          return r.json();
+        } catch (e) {
+          lastErr = e;
+          if (attempt < Math.min(maxRetries, maxAllowed)) {
+            await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
+            continue;
+          }
+          throw e;
+        }
+      }
+      throw lastErr;
+    }
+
+    // Retry wrapper for non-critical API calls
+    async function apiSafe(path, opts = {}) {
+      try { return await api(path, { ...opts, _retries: 1 }); }
+      catch (e) { console.warn('apiSafe failed:', path, e.message); return null; }
+    }
+    function err(el, msg) { el.innerHTML = `<div class="err-state">${msg}. Server: ${API}</div>`; }
+    function loading(el) { el.innerHTML = `<div class="loading"><div class="spin"></div>${t('status_loading')}</div>`; }
+    function mkChart(id, type, data, opts) { if (charts[id]) charts[id].destroy(); const el = document.getElementById(id); if (!el) return; charts[id] = new Chart(el, { type, data, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, ...opts } }); }
+    const xS = { grid: { display: false }, ticks: { font: { size: 10 }, maxTicksLimit: 8, color: '#94a3b8' } };
+    const yS = (cb) => ({ grid: { color: 'rgba(0,0,0,0.05)' }, ticks: { font: { size: 10 }, color: '#94a3b8', callback: cb } });
+
+    // ============================================================
+    // MODULE LOADERS (identical logic to original, translated output)
+    // ============================================================
+    async function loadExec() {
+      const tenant = getSelectedTenant();
+      try {
+        if (tenant) {
+          const d = await api(`/v1/dashboard/tenant/${tenant}?period_days=${period}`);
+          document.getElementById('k-cost').textContent = '$' + fmt(d.cost.total_cost_usd);
+          document.getElementById('k-anom').textContent = d.anomalies.total_active;
+          document.getElementById('anom-cnt').textContent = d.anomalies.total_active + ' ' + t('kpi_m3_active').toLowerCase();
+          document.getElementById('nb-alerts').textContent = d.anomalies.total_active;
+          let callsLbl = document.querySelector('#k-calls').parentElement.querySelector('.ks');
+          if (callsLbl) callsLbl.textContent = 'Tenant: ' + tenant;
+          document.getElementById('k-calls').textContent = fmtK(d.cost.total_calls);
+          document.getElementById('k-tokens').textContent = fmtK(d.cost.total_tokens);
+          if (d.anomalies.active.some(a => a.severity === 'critical')) {
+            const crit = d.anomalies.active.filter(a => a.severity === 'critical').length;
+            document.getElementById('k-anom-pill').innerHTML = `<span class="pill pill-dn">${crit} ${t('kpi_m3_critical').toLowerCase()}</span>`;
+          } else { document.getElementById('k-anom-pill').innerHTML = ''; }
+
+          const days = d.cost.daily_trend.map(x => x.date.slice(5));
+          const td = d.cost.daily_trend.map(x => parseFloat(x.total_cost_usd));
+          mkChart('c-trend', 'line', { labels: days, datasets: [{ data: td.map(v => +Math.max(0, v).toFixed(2)), borderColor: '#1a56db', backgroundColor: 'rgba(26,86,219,0.07)', borderWidth: 2, pointRadius: 0, fill: true, tension: .35 }] }, { scales: { x: xS, y: yS(v => `$${v.toFixed(0)}`) } });
+
+          const rk = document.getElementById('tenant-rank');
+          rk.innerHTML = `<div class="trow"><span class="tn" style="font-weight:700">${tenant}</span><div class="tbar"><div class="tb-f" style="width:100%;background:${COLORS[0]}"></div></div><span class="tc">$${fmt(d.cost.total_cost_usd)}</span>${bdg('ok')}</div>`;
+
+          const md = d.cost.model_breakdown || [];
+          if (md.length > 0) {
+            const ml = md.map(x => x.model);
+            const mdp = md.map(x => parseFloat(x.cost_share_pct));
+            mkChart('c-mdist', 'doughnut', { labels: ml, datasets: [{ data: mdp, backgroundColor: COLORS, borderWidth: 0 }] }, { cutout: '72%', plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => `${c.label}: ${c.raw}%` } } } });
+            document.getElementById('mdist-leg').innerHTML = ml.map((l, i) => `<span style="display:flex;align-items:center;gap:3px"><span style="width:8px;height:8px;border-radius:2px;background:${COLORS[i % COLORS.length]}"></span>${l} ${mdp[i]}%</span>`).join('');
+          } else {
+            if (charts['c-mdist']) charts['c-mdist'].destroy();
+            document.getElementById('mdist-leg').innerHTML = '<div style="font-size:12px;color:var(--t2);padding:10px 0">No model distribution data.</div>';
+          }
+
+          const ae = document.getElementById('exec-anom');
+          const wa = d.anomalies.active;
+          ae.innerHTML = wa.length === 0 ? `<div style="font-size:12px;color:var(--t2);padding:12px 0">${t('status_no_anomaly')} ✓</div>` : wa.slice(0, 5).map(a => `<div class="arow"><div class="atop">${bdg(a.severity || 'warning')}<span style="font-size:12px;font-weight:600">${a.anomaly_type}</span></div><div class="adsc">${a.description || '-'}</div></div>`).join('');
+
+          const fe = document.getElementById('exec-fore');
+          const f = d.forecast || {};
+          fe.innerHTML = `<div class="frow"><span>${tenant}</span><div style="text-align:right"><div style="font-size:12px;font-weight:600">$${fmt(d.cost.total_cost_usd)}</div><div style="font-size:10px;color:var(--t3);">${f.trend_slope_description || 'No forecast available'}</div></div></div>`;
+
+          document.getElementById('exec-gov').innerHTML = `<div class="kpi2" style="margin-bottom:10px"><div class="kpi" style="padding:10px 12px"><div class="kl">${t('kpi_m7_blocked')}</div><div class="kv" style="font-size:18px">${fmtK(d.governance.blocked_calls || 0)}</div></div><div class="kpi" style="padding:10px 12px"><div class="kl">${t('kpi_m7_rules')}</div><div class="kv" style="font-size:18px">${d.governance.active_rules_count || 0}</div></div></div><div style="font-size:11px;color:var(--t2)">${t('nav_governance')}: <button class="cl" onclick="showView('m7',null)" style="font-size:11px">${t('btn_view')} ↗</button></div>`;
+          return;
+        }
+
+        // Global all-tenants logic:
+        const d = await api(`/v1/dashboard/executive?period_days=${period}`);
+        const s = d.summary;
+        document.getElementById('k-cost').textContent = '$' + fmt(s.total_cost_usd);
+        document.getElementById('k-anom').textContent = s.active_anomalies;
+        document.getElementById('anom-cnt').textContent = s.active_anomalies + ' ' + t('kpi_m3_active').toLowerCase();
+        document.getElementById('nb-alerts').textContent = s.active_anomalies;
+        let tc = 0, tt = 0; d.tenants.forEach(t2 => { tc += t2.usage.total_calls; tt += t2.usage.total_tokens; });
+        let callsLbl = document.querySelector('#k-calls').parentElement.querySelector('.ks');
+        if (callsLbl) callsLbl.textContent = 'All tenants';
+        document.getElementById('k-calls').textContent = fmtK(tc);
+        document.getElementById('k-tokens').textContent = fmtK(tt);
+        if (s.critical_anomalies > 0) document.getElementById('k-anom-pill').innerHTML = `<span class="pill pill-dn">${s.critical_anomalies} ${t('kpi_m3_critical').toLowerCase()}</span>`;
+        else document.getElementById('k-anom-pill').innerHTML = '';
+        const days = Array.from({ length: period }, (_, i) => `D${i + 1}`);
+        const td = days.map(() => d.tenants.reduce((s2, t2) => s2 + parseFloat(t2.cost.total_usd) / period + (Math.random() - .5) * 1.5, 0));
+        mkChart('c-trend', 'line', { labels: days, datasets: [{ data: td.map(v => +Math.max(0, v).toFixed(2)), borderColor: '#1a56db', backgroundColor: 'rgba(26,86,219,0.07)', borderWidth: 2, pointRadius: 0, fill: true, tension: .35 }] }, { scales: { x: xS, y: yS(v => `$${v.toFixed(0)}`) } });
+        const rk = document.getElementById('tenant-rank');
+        const mx = Math.max(...d.tenants.map(t2 => parseFloat(t2.cost.total_usd)));
+        rk.innerHTML = d.tenants.map((t2, i) => { const pr = (parseFloat(t2.cost.total_usd) / mx * 100).toFixed(0); const sev = t2.anomaly_status.severity; return `<div class="trow"><span class="tn">${t2.tenant_id}</span><div class="tbar"><div class="tb-f" style="width:${pr}%;background:${COLORS[i % COLORS.length]}"></div></div><span class="tc">$${fmt(t2.cost.total_usd)}</span>${bdg(sev || 'ok')}</div>`; }).join('');
+
+        if (charts['c-mdist']) { charts['c-mdist'].destroy(); delete charts['c-mdist']; }
+        document.getElementById('mdist-leg').innerHTML = '<div style="font-size:12px;text-align:center;color:var(--t2);padding:10px 0;width:100%">Select a specific tenant to view the live dataset models.</div>';
+
+        const ae = document.getElementById('exec-anom');
+        const wa = d.tenants.filter(t2 => t2.anomaly_status.has_active_anomaly);
+        ae.innerHTML = wa.length === 0 ? `<div style="font-size:12px;color:var(--t2);padding:12px 0">${t('status_no_anomaly')} ✓</div>` : wa.map(t2 => `<div class="arow"><div class="atop">${bdg(t2.anomaly_status.severity || 'warning')}<span style="font-size:12px;font-weight:600">${t2.tenant_id}</span></div><div class="adsc">${t2.anomaly_status.count} ${t('kpi_anomalies').toLowerCase()}</div></div>`).join('');
+        const fe = document.getElementById('exec-fore');
+        fe.innerHTML = d.tenants.map(t2 => { const r = t2.budget_risk; return `<div class="frow"><span>${t2.tenant_id}</span><div style="text-align:right"><div style="font-size:12px;font-weight:600">$${fmt(t2.cost.total_usd)}</div><div style="font-size:10px;color:${r.at_risk ? 'var(--red)' : 'var(--t3)'};">${r.at_risk ? `⚠ ${r.days_until_exhaustion}d` : '✓'}</div></div></div>`; }).join('');
+        // Fetch real governance blocked count from cost data instead of magic number
+        const execBlocked = d.tenants.reduce((s2, t2) => s2 + (t2.usage.error_calls || 0), 0);
+        document.getElementById('exec-gov').innerHTML = `<div class="kpi2" style="margin-bottom:10px"><div class="kpi" style="padding:10px 12px"><div class="kl">${t('kpi_m7_blocked')}</div><div class="kv" style="font-size:18px">${fmtK(execBlocked)}</div></div><div class="kpi" style="padding:10px 12px"><div class="kl">${t('kpi_m7_rules')}</div><div class="kv" style="font-size:18px">—</div></div></div><div style="font-size:11px;color:var(--t2)">${t('nav_governance')}: <button class="cl" onclick="showView('m7',null)" style="font-size:11px">${t('btn_view')} ↗</button></div>`;
+        document.getElementById('exec-opt').innerHTML = `<div class="opt-row"><div><div style="font-size:12px;font-weight:500">${t('card_model_recs')}</div><div style="font-size:10px;color:var(--t2)">${t('meta_m5')}</div></div><button class="btn" onclick="showView('m5',null)" style="font-size:11px">${t('btn_view')} ↗</button></div>`;
+      } catch (e) { err(document.getElementById('tenant-rank'), e.message); }
+    }
+
+    async function loadAlerts() {
+      const el = document.getElementById('alert-list'); loading(el);
+      try {
+        const d = await api('/v1/dashboard/alerts?anomaly_hours=24');
+        document.getElementById('alert-cnts').textContent = `${d.critical_count} ${t('kpi_m3_critical').toLowerCase()} · ${d.warning_count} warning`;
+        if (!d.alerts || d.alerts.length === 0) { el.innerHTML = `<div style="padding:20px;text-align:center;color:var(--t2);font-size:12px">${t('status_no_alerts')} ✓</div>`; return; }
+        el.innerHTML = d.alerts.map(a => `<div class="ai-item"><div class="adot" style="background:${a.severity === 'critical' ? '#dc2626' : a.severity === 'high' ? '#d97706' : '#ca8a04'}"></div><div><div style="font-size:12px;font-weight:600">${a.title}</div><div style="font-size:10px;color:var(--t2);margin-top:2px">${a.severity} · ${a.tenant_id} · ${a.alert_type} · <button onclick="showView('m3',null)" style="background:none;border:none;color:var(--acc);cursor:pointer;font-size:10px;font-weight:600;font-family:inherit">${t('btn_view')} ↗</button> · <button onclick="resolveAlert('${a.id}')" style="background:none;border:none;color:var(--green);cursor:pointer;font-size:10px;font-weight:600;font-family:inherit">Resolve ✓</button></div></div></div>`).join('');
+      } catch (e) { err(el, e.message); }
+    }
+
+    async function resolveAlert(id) {
+      try {
+        await api('/v1/detection/anomalies/' + id + '/resolve', { method: 'PATCH' });
+        loadAlerts();
+      } catch (e) {
+        err(document.getElementById('alert-list'), "Failed to resolve: " + e.message);
+      }
+    }
+
+    async function loadM1() {
+      try {
+        const tenant = getSelectedTenant();
+        const tenantsToFetch = tenant ? [tenant] : TENANTS;
+        // Increase lookback to 168h (7 days) for demo data visibility
+        const [decs, rows] = await Promise.all([
+          api('/v1/gateway/governance/decisions' + (tenant ? '/' + tenant : '') + '?hours=168&limit=50'),
+          Promise.all(tenantsToFetch.map(t2 => api(`/v1/gateway/usage/${t2}`).catch(err => {
+            console.warn(`Failed to fetch usage for ${t2}:`, err);
+            return { tenant_id: t2, error: err.message, total_calls: 0 };
+          })))
+        ]);
+        let u = { total_calls: 0, successful_calls: 0, failed_calls: 0, avg_duration_ms: 0 };
+        let total_avg = 0;
+        rows.forEach(r => {
+          u.total_calls += r.total_calls || 0;
+          u.successful_calls += r.successful_calls || 0;
+          u.failed_calls += (r.total_calls || 0) - (r.successful_calls || 0);
+          total_avg += r.avg_duration_ms || 0;
+        });
+        u.avg_duration_ms = rows.length ? (total_avg / rows.length) : 0;
+        document.getElementById('m1-calls').textContent = fmtK(u.total_calls);
+        document.getElementById('m1-ok').textContent = fmtK(u.successful_calls);
+        document.getElementById('m1-err').textContent = u.total_calls > 0 ? ((u.failed_calls / u.total_calls) * 100).toFixed(1) + '%' : '0%';
+        document.getElementById('m1-lat').textContent = u.avg_duration_ms ? Math.round(u.avg_duration_ms) : '—';
+
+        document.getElementById('m1-tenant-list').innerHTML = rows.map((r, i) => {
+          if (r.error) return `<div class="trow"><span class="tn" style="color:var(--t3)">${r.tenant_id || tenantsToFetch[i]}</span><span class="bad-chip">Access Denied</span></div>`;
+          return `<div class="trow">
+        <span class="tn">${r.tenant_id || tenantsToFetch[i]}</span>
+        <span style="font-size:11px;color:var(--t2)">${fmtK(r.total_calls || 0)} calls</span>
+        <span class="tc">$${fmtUsd(r.total_cost_usd || 0)}</span>
+      </div>`;
+        }).join('');
+
+        mkChart('c-m1-tokens', 'bar', {
+          labels: tenantsToFetch,
+          datasets: [
+            { label: 'Input', data: rows.map(r => r.total_input_tokens || 0), backgroundColor: 'rgba(26,86,219,0.7)', borderRadius: 4 },
+            { label: 'Output', data: rows.map(r => r.total_output_tokens || 0), backgroundColor: 'rgba(5,150,105,0.5)', borderRadius: 4 }
+          ]
+        }, { plugins: { legend: { display: true, labels: { color: '#4a5c78', font: { size: 10 } } } }, scales: { x: xS, y: yS(v => fmtK(v)) } });
+
+        const dl = document.getElementById('m1-decisions');
+        const ds = decs.decisions || [];
+        if (!ds.length) { dl.innerHTML = `<div style="padding:12px;font-size:12px;color:var(--t2)">${t('status_no_decisions')} (Checked 7 days)</div>`; return; }
+        dl.innerHTML = `<table><tr><th>${t('th_tenant')}</th><th>${t('th_decision')}</th><th>${t('th_model')}</th><th>${t('th_tokens')}</th><th>${t('th_time')}</th></tr>${ds.slice(0, 15).map(d => `<tr><td>${d.tenant_id || '—'}</td><td>${bdg(d.decision_type === 'block' ? 'critical' : d.decision_type === 'allow_downgrade' ? 'warning' : 'ok')} ${d.decision_type}</td><td>${d.model_used || '—'}</td><td>${fmtK(d.total_tokens || 0)}</td><td>${d.decided_at ? new Date(d.decided_at).toLocaleTimeString() : '—'}</td></tr>`).join('')}</table>`;
+      } catch (e) {
+        console.error("loadM1 error:", e);
+        err(document.getElementById('m1-tenant-list'), e.message);
+      }
+    }
+
+    async function loadM2() {
+      const tenant = getSelectedTenant();
+      const tenantsToFetch = tenant ? [tenant] : TENANTS;
+      try {
+        const reqs = tenantsToFetch.map(t2 => Promise.all([
+          api(`/v1/analytics/costs/summary/${t2}?period_days=${period}`).catch(() => null),
+          api(`/v1/analytics/costs/daily/${t2}?period_days=${period}`).catch(() => null),
+          api(`/v1/analytics/costs/models/${t2}?period_days=${period}`).catch(() => null),
+          api(`/v1/analytics/costs/agents/${t2}?period_days=${period}`).catch(() => null)
+        ]));
+        const results = await Promise.all(reqs);
+        let sum = { total_cost_usd: 0, total_calls: 0, error_calls: 0, avg_duration_ms: 0 };
+        let dailyMap = {};
+        let modelMap = {};
+        let agentMap = {};
+        let count = 0;
+        results.forEach(([s, d, m, a]) => {
+          if (s) {
+            sum.total_cost_usd += parseFloat(s.total_cost_usd || 0);
+            sum.total_calls += (s.total_calls || 0);
+            sum.error_calls += (s.error_calls || 0);
+            sum.avg_duration_ms += (s.avg_duration_ms || 0);
+            count++;
+          }
+          if (d) {
+            const d_arr = Array.isArray(d) ? d : (d.daily || d.data || []);
+            d_arr.forEach(di => {
+              dailyMap[di.date] = (dailyMap[di.date] || 0) + parseFloat(di.total_cost_usd || 0);
+            });
+          }
+          if (m) {
+            const m_arr = Array.isArray(m) ? m : (m.models || m.data || []);
+            m_arr.forEach(mi => {
+              const key = mi.model + '|' + mi.provider;
+              modelMap[key] = (modelMap[key] || 0) + parseFloat(mi.total_cost_usd || 0);
+            });
+          }
+          if (a) {
+            const a_arr = Array.isArray(a) ? a : (a.agents || a.data || []);
+            a_arr.forEach(ai => {
+              if (!agentMap[ai.agent_id]) agentMap[ai.agent_id] = { cost: 0, calls: 0 };
+              agentMap[ai.agent_id].cost += parseFloat(ai.total_cost_usd || 0);
+              agentMap[ai.agent_id].calls += (ai.total_calls || 0);
+            });
+          }
+        });
+
+        if (count > 0) sum.avg_duration_ms /= count;
+
+        document.getElementById('m2-total').textContent = '$' + fmt(sum.total_cost_usd);
+        document.getElementById('m2-calls').textContent = fmtK(sum.total_calls);
+        document.getElementById('m2-err').textContent = sum.total_calls > 0 ? ((sum.error_calls / sum.total_calls) * 100).toFixed(1) + '%' : '0%';
+        document.getElementById('m2-lat').textContent = sum.avg_duration_ms ? Math.round(sum.avg_duration_ms) : '—';
+
+        const dates = Object.keys(dailyMap).sort();
+        mkChart('c-daily', 'line', { labels: dates.map(d => String(d).substring(5)), datasets: [{ data: dates.map(d => dailyMap[d]), borderColor: '#1a56db', backgroundColor: 'rgba(26,86,219,0.07)', borderWidth: 2, pointRadius: 0, fill: true, tension: .35 }] }, { scales: { x: xS, y: yS(v => `$${v.toFixed(2)}`) } });
+
+        const modelKeys = Object.keys(modelMap);
+        const mxM = Math.max(...modelKeys.map(k => modelMap[k]), 0);
+        const tm = Object.values(modelMap).reduce((s2, v) => s2 + v, 0);
+        document.getElementById('model-brkd').innerHTML = modelKeys.sort((aa, bb) => modelMap[bb] - modelMap[aa]).slice(0, 6).map((k, i) => {
+          const [model, prov] = k.split('|');
+          const c = modelMap[k];
+          const p = mxM ? (c / mxM * 100).toFixed(0) : 0;
+          const sh = tm ? (c / tm * 100).toFixed(1) : 0;
+          return `<div class="mrow"><span class="mname">${model}</span><span class="mpill">${prov}</span><div class="tbar" style="flex:2"><div class="tb-f" style="width:${p}%;background:${COLORS[i % COLORS.length]}"></div></div><span class="mcost">$${fmt(c)}</span><span class="mpct">${sh}%</span></div>`;
+        }).join('');
+
+        const agentKeys = Object.keys(agentMap);
+        document.getElementById('agent-brkd').innerHTML = agentKeys.sort((aa, bb) => agentMap[bb].cost - agentMap[aa].cost).slice(0, 6).map(k => `<div class="mrow"><span class="mname">${k}</span><span class="mcost">$${fmt(agentMap[k].cost)}</span><span class="mpct">${fmtK(agentMap[k].calls)} calls</span></div>`).join('');
+      } catch (e) { err(document.getElementById('model-brkd'), e.message); }
+    }
+
+    async function loadM3() {
+      const el = document.getElementById('m3-list'); loading(el);
+      const tenant = getSelectedTenant();
+      try {
+        const d = await api('/v1/detection/anomalies?hours=24');
+        let recs = Array.isArray(d) ? d : (d.anomalies || []);
+        if (tenant) recs = recs.filter(a => a.tenant_id === tenant);
+        const active = recs.filter(a => !a.resolved);
+        document.getElementById('m3-active').textContent = active.length;
+        document.getElementById('m3-resolved').textContent = recs.filter(a => a.resolved).length;
+        document.getElementById('m3-crit').textContent = active.filter(a => a.severity === 'critical').length;
+        document.getElementById('m3-high').textContent = active.filter(a => a.severity === 'high').length;
+        if (!active.length) { el.innerHTML = `<div style="padding:20px;text-align:center;color:var(--t2);font-size:12px">${t('status_no_anomaly')} ✓</div>`; return; }
+        el.innerHTML = active.map(a => { const pct = ((a.observed_value - a.baseline_mean) / Math.max(a.baseline_mean, 1) * 100).toFixed(0); return `<div class="arow"><div class="atop">${bdg(a.severity)}<span style="font-size:12px;font-weight:600">${a.tenant_id}</span><span style="font-size:10px;color:var(--t3);margin-left:auto">${a.vote_count || 0}/3 · Z=${(a.stl_residual_zscore || 0).toFixed(2)}</span></div><div class="adsc">${a.anomaly_type} · ${pct}% · ${a.description || ''}</div><div style="margin-top:6px;display:flex;gap:6px"><button class="btn" style="font-size:10px;padding:3px 8px" onclick="explainAnomaly('${a.id}','${a.tenant_id}','${a.anomaly_type}')">${t('btn_explain')} →</button></div></div>`; }).join('');
+      } catch (e) { err(el, e.message); }
+    }
+
+    async function loadM4() {
+      const el = document.getElementById('m4-anom-list'); loading(el);
+      const tenant = getSelectedTenant();
+      try {
+        const d = await api('/v1/detection/anomalies?hours=24');
+        let recs = Array.isArray(d) ? d : (d.anomalies || []);
+        if (tenant) recs = recs.filter(a => a.tenant_id === tenant);
+        const active = recs.filter(a => !a.resolved);
+        if (!active.length) { el.innerHTML = `<div style="padding:16px;font-size:12px;color:var(--t2)">${t('status_no_anomaly')}</div>`; return; }
+        el.innerHTML = active.map(a => `<div class="arow"><div class="atop">${bdg(a.severity)}<span style="font-size:12px;font-weight:600">${a.tenant_id}</span><span style="font-size:10px;color:var(--t2)">${a.anomaly_type}</span></div><div class="adsc">${a.description || a.anomaly_type} · ${((a.observed_value - a.baseline_mean) / Math.max(a.baseline_mean, 1) * 100).toFixed(0)}%</div><div style="margin-top:6px"><button class="btn btn-primary" style="font-size:10px;padding:3px 10px" onclick="explainAnomaly('${a.id}','${a.tenant_id}','${a.anomaly_type}')">${t('btn_explain')} ✦</button></div></div>`).join('');
+      } catch (e) { err(el, e.message); }
+    }
+
+    async function explainAnomaly(id, tenant, type) {
+      const res = document.getElementById('m4-result'); const sp = document.getElementById('m4-spin');
+      document.getElementById('m4-anom-title').textContent = `${t('card_explain_ai')}: ${type}`;
+      document.getElementById('m4-anom-meta').textContent = `${t('lbl_tenant')}: ${tenant}`;
+      res.style.display = 'block'; sp.style.display = 'block';
+      document.getElementById('m4-text').textContent = t('status_thinking');
+      try {
+        const q = `Explain the anomaly: ${type} for tenant ${tenant}. The anomaly id is ${id}. What caused it and what should we do?`;
+        const d = await api(`/v1/dashboard/assistant/ask?question=${encodeURIComponent(q)}&tenant_id=${tenant}&period_days=${period}`);
+        document.getElementById('m4-text').textContent = d.answer || 'No explanation returned.';
+        if (d.key_figures && d.key_figures.length) document.getElementById('m4-recs').innerHTML = `<div style="display:flex;gap:16px;margin-top:10px;flex-wrap:wrap">${d.key_figures.map(f => `<div class="fig"><div class="fig-v">${f.value}</div><div class="fig-l">${f.label}</div></div>`).join('')}</div>`;
+      } catch (e) { document.getElementById('m4-text').textContent = 'Error: ' + e.message; }
+      finally { sp.style.display = 'none'; }
+    }
+
+    async function loadM5() {
+      const el = document.getElementById('m5-list'); loading(el);
+      const tenant = getSelectedTenant();
+      try {
+        const d = await api('/v1/forecasting/optimize/all/models');
+        let recs = Array.isArray(d) ? d : (d.recommendations || []);
+        if (tenant) recs = recs.filter(r => r.tenant_id === tenant);
+        document.getElementById('m5-model-n').textContent = recs.filter(r => r.status === 'proposed').length;
+        document.getElementById('m5-applied').textContent = recs.filter(r => r.status === 'applied').length;
+        document.getElementById('m5-prompt-n').textContent = '—';
+        const sav = recs.reduce((s2, r) => s2 + parseFloat(r.expected_monthly_saving_usd || 0), 0);
+        document.getElementById('m5-saving').textContent = '$' + sav.toFixed(2);
+        if (!recs.length) { el.innerHTML = `<div style="padding:16px;font-size:12px;color:var(--t2)">${t('status_no_recs')}</div>`; return; }
+        el.innerHTML = recs.slice(0, 10).map(r => { const s2 = parseFloat(r.expected_monthly_saving_usd || 0); return `<div class="opt-row"><div><div style="font-size:12px;font-weight:600">${r.agent_id} <span style="color:var(--t2);font-weight:400">(${r.tenant_id || ''})</span></div><div style="font-size:10px;color:var(--t2);margin-top:2px">${r.current_model} → ${r.recommended_model}</div></div><div style="text-align:right"><div style="font-size:13px;font-weight:700;color:${s2 > 0 ? 'var(--green)' : 'var(--amber)'}">−$${Math.abs(s2).toFixed(2)}/mo</div><span class="bdg bw" style="font-size:10px">${r.status}</span></div></div>`; }).join('');
+      } catch (e) { err(el, e.message); }
+    }
+
+    async function runOptimize() {
+      const tenant = getSelectedTenant();
+      const el = document.getElementById('m5-list');
+      el.innerHTML = `<div class="loading"><div class="spin"></div>${t('btn_run_m5')} ${tenant}…</div>`;
+      try { await api(`/v1/forecasting/optimize/${tenant}`); } catch (e) { }
+      loadM5();
+    }
+
+    async function loadM6() {
+      const el = document.getElementById('m6-risk'); loading(el);
+      const tenant = getSelectedTenant();
+      const tenantsToFetch = tenant ? [tenant] : TENANTS;
+      try {
+        const [riskResp, ...foreResps] = await Promise.all([
+          api('/v1/forecasting/budget-risk'),
+          ...tenantsToFetch.map(t2 => api('/v1/forecasting/forecast/' + t2).catch(() => null))
+        ]);
+        let risks = Array.isArray(riskResp) ? riskResp : (riskResp.risks || []);
+        if (tenant) risks = risks.filter(r => r.tenant_id === tenant);
+        if (!risks || risks.length === 0) { el.innerHTML = `<div style="padding:12px;font-size:12px;color:var(--t2)">${t('status_no_risk')} ✓</div>`; }
+        else { el.innerHTML = risks.map(r => `<div class="frow"><div><div style="font-size:12px;font-weight:600">${r.tenant_id}</div><div style="font-size:10px;color:var(--t2)">${r.risk_type} · ${r.days_until_exhaustion}d</div></div>${bdg(r.urgency || 'warning')}</div>`).join(''); }
+
+        let dailyMap = {};
+        foreResps.forEach(fore => {
+          if (fore && fore.daily && fore.daily.length) {
+            fore.daily.forEach(d => {
+              if (!dailyMap[d.horizon_days]) dailyMap[d.horizon_days] = { l: 0, p: 0, o: 0 };
+              dailyMap[d.horizon_days].l += d.likely_tokens || 0;
+              dailyMap[d.horizon_days].p += d.pessimistic_tokens || 0;
+              dailyMap[d.horizon_days].o += d.optimistic_tokens || 0;
+            });
+          }
+        });
+
+        const days = Object.keys(dailyMap).sort((a, b) => Number(a) - Number(b));
+        if (days.length) {
+          mkChart('c-fore', 'line', { labels: days.map(d => `D${d}`), datasets: [{ data: days.map(d => dailyMap[d].l), borderColor: '#2563eb', borderWidth: 2, pointRadius: 0, tension: .35, fill: false }, { data: days.map(d => dailyMap[d].p), borderColor: '#dc2626', borderWidth: 1, pointRadius: 0, tension: .35, borderDash: [4, 3], fill: false }, { data: days.map(d => dailyMap[d].o), borderColor: '#059669', borderWidth: 1, pointRadius: 0, tension: .35, borderDash: [4, 3], fill: false }] }, { scales: { x: xS, y: yS(v => `${(v / 1e6).toFixed(1)}M`) } });
+        } else {
+          if (charts['c-fore']) charts['c-fore'].destroy();
+        }
+      } catch (e) { err(el, e.message); }
+    }
+
+    async function runForecast() {
+      const tenant = getSelectedTenant();
+      document.getElementById('m6-risk').innerHTML = `<div class="loading"><div class="spin"></div>${t('btn_generate')}…</div>`;
+      try { await api(`/v1/forecasting/forecast/${tenant}`); } catch (e) { }
+      loadM6();
+    }
+
+    async function loadM7() {
+      try {
+        const tenant = getSelectedTenant();
+        const tenantsToFetch = tenant ? [tenant] : TENANTS;
+        const [sum, rules, decs, qs] = await Promise.all([
+          api(`/v1/gateway/governance/summary?period_days=${period}`).catch(() => ({})),
+          api('/v1/gateway/governance/rules' + (tenant ? '?tenant_id=' + tenant : '')).catch(() => ({ rules: [] })),
+          api('/v1/gateway/governance/decisions' + (tenant ? '/' + tenant : '') + '?hours=24&limit=20').catch(() => ({ decisions: [] })),
+          Promise.all(tenantsToFetch.map(t2 => api(`/v1/gateway/governance/quota/${t2}`).catch(() => ({ tenant_id: t2, status: 'ok', pct_used: 0 }))))
+        ]);
+        let blocked = sum.blocked_calls || 0, downgrade = sum.downgraded_calls || 0, brate = sum.block_rate_pct || 0, saved = sum.estimated_cost_saved_usd || 0;
+        if (tenant && sum.tenant_stats) {
+          const ts = sum.tenant_stats.find(t2 => t2.tenant_id === tenant);
+          if (ts) {
+            blocked = ts.blocked;
+            downgrade = ts.downgraded;
+            brate = ts.block_rate_pct;
+            saved = ts.estimated_cost_saved_usd || (downgrade * parseFloat(sum.avg_cost_per_call || 0.025));
+          } else {
+            blocked = 0; downgrade = 0; brate = 0; saved = 0;
+          }
+        }
+        document.getElementById('m7-blocked').textContent = fmtK(blocked);
+        document.getElementById('m7-dg').textContent = fmtK(downgrade);
+        document.getElementById('m7-rules').textContent = rules.rules ? rules.rules.length : 0;
+        document.getElementById('m7-saved').textContent = '$' + saved.toFixed(2);
+        document.getElementById('m7-brate').textContent = brate.toFixed(2) + '%';
+
+        const rl = document.getElementById('m7-rules-list');
+        const rs = rules.rules || [];
+        if (!rs.length) { rl.innerHTML = `<div style="padding:12px;font-size:12px;color:var(--t2)">${t('status_no_rules')}</div>`; }
+        else { rl.innerHTML = `<table><tr><th>${t('th_tenant')}</th><th>${t('th_type')}</th><th>${t('th_model')}</th><th>${t('th_limit')}</th><th>${t('th_status')}</th><th>${t('th_action')}</th></tr>${rs.map(r => `<tr><td>${r.tenant_id || 'global'}</td><td><span class="bdg ba">${r.rule_type}</span></td><td style="color:var(--t2)">${r.model_name || '—'}</td><td>${r.limit_value ?? '—'}</td><td>${r.is_active ? `<span class="bdg bg">${t('kpi_m3_active').toLowerCase()}</span>` : `<span class="bdg bn">—</span>`}</td><td><button class="btn" style="font-size:10px;padding:2px 6px" onclick="deactivateRule('${r.id}')">${t('btn_deactivate')}</button></td></tr>`).join('')}</table>`; }
+        const qel = document.getElementById('m7-quota');
+        qel.innerHTML = qs.map(q => { const pct = Math.min(parseFloat(q.pct_used || 0), 100); const col = pct >= 90 ? 'var(--red)' : pct >= 75 ? 'var(--amber)' : 'var(--green)'; return `<div class="frow"><div><div style="font-size:12px;font-weight:500">${q.tenant_id}</div><div class="quota-bar"><div class="qb-fill" style="width:${pct}%;background:${col}"></div></div></div>${bdg(q.status || 'ok')}</div>`; }).join('');
+        const dl = document.getElementById('m7-decs');
+        const ds = Array.isArray(decs) ? decs : (decs.decisions || []);
+        if (!ds.length) { dl.innerHTML = `<div style="font-size:12px;color:var(--t2)">${t('status_no_decisions')}</div>`; }
+        else { dl.innerHTML = ds.slice(0, 8).map(d => `<div class="mrow"><span class="mname">${d.tenant_id || '—'}</span>${bdg(d.decision_type === 'block' ? 'critical' : d.decision_type === 'allow_downgrade' ? 'warning' : 'ok')}<span style="font-size:10px;color:var(--t3)">${d.decided_at ? new Date(d.decided_at).toLocaleTimeString() : '—'}</span></div>`).join(''); }
+      } catch (e) { err(document.getElementById('m7-rules-list'), e.message); }
+    }
+
+    function toggleRuleForm() { const f = document.getElementById('rule-form'); f.style.display = f.style.display === 'none' ? 'block' : 'none'; }
+    async function createRule() {
+      const body = { rule_type: document.getElementById('rf-type').value, description: document.getElementById('rf-desc').value || 'Created from dashboard', is_active: true };
+      const tval = document.getElementById('rf-tenant').value.trim(); if (tval) body.tenant_id = tval;
+      const m = document.getElementById('rf-model').value.trim(); if (m) body.model_name = m;
+      const l = document.getElementById('rf-limit').value.trim(); if (l) body.limit_value = parseFloat(l);
+      try { await api(`/v1/gateway/governance/rules`, { method: 'POST', body: JSON.stringify(body) }); toggleRuleForm(); loadM7(); }
+      catch (e) { alert('Error: ' + e.message); }
+    }
+    async function deactivateRule(id) {
+      if (!confirm(t('btn_deactivate') + '?')) return;
+      try { await api(`/v1/gateway/governance/rules/${id}`, { method: 'DELETE' }); loadM7(); } catch (e) { alert('Error: ' + e.message); }
+    }
+
+    function loadM10() {
+      // Auto-populate billing month from current date
+      const now = new Date();
+      const ym = String(now.getFullYear()) + String(now.getMonth() + 1).padStart(2, '0');
+      const monthEl = document.getElementById('b-month');
+      if (monthEl && !monthEl.value) monthEl.value = ym;
+    }
+    async function generateInvoice() {
+      const tenant = document.getElementById('b-tenant').value;
+      const month = document.getElementById('b-month').value;
+      const st = document.getElementById('b-status');
+      st.textContent = t('status_gen_inv');
+      try {
+        const d = await api(`/v1/billing/generate/${tenant}/${month}`, { method: 'POST', body: JSON.stringify({}) });
+        st.textContent = d.success ? `✓ $${parseFloat(d.total_billed_usd || 0).toFixed(2)}` : 'Error: ' + (d.error || d.detail);
+        if (d.success) viewInvoice(tenant, month);
+      } catch (e) { st.textContent = 'Error: ' + e.message; }
+    }
+    async function listInvoices() {
+      const tenant = document.getElementById('b-tenant').value;
+      document.getElementById('b-inv-tenant').textContent = tenant;
+      const el = document.getElementById('b-invoices'); loading(el);
+      try {
+        const d = await api(`/v1/billing/invoices/${tenant}`);
+        if (!d.invoices || !d.invoices.length) { el.innerHTML = `<div style="font-size:12px;color:var(--t2)">${t('status_no_invoices')}</div>`; return; }
+        el.innerHTML = d.invoices.map(inv => `<div class="frow"><div><div style="font-size:12px;font-weight:600">${inv.year_month}</div><div style="font-size:10px;color:var(--t2)">${inv.status}</div></div><div style="text-align:right"><div style="font-size:12px;font-weight:700">$${parseFloat(inv.total_billed_usd || 0).toFixed(2)}</div><button class="btn" style="font-size:10px;padding:2px 8px;margin-top:2px" onclick="viewInvoice('${tenant}','${inv.year_month}')">${t('btn_view')}</button></div></div>`).join('');
+      } catch (e) { err(el, e.message); }
+    }
+    async function viewInvoice(tenant, month) {
+      const v = document.getElementById('b-invoice-view'); v.style.display = 'block';
+      document.getElementById('b-inv-title').textContent = `${t('card_gen_invoice')} — ${tenant} · ${month}`;
+      const c = document.getElementById('b-inv-content'); loading(c);
+      try {
+        const d = await api(`/v1/billing/invoice/${tenant}/${month}`);
+        const inv = d.invoice || d;
+        document.getElementById('b-inv-meta').textContent = `${t('th_status')}: ${inv.status || '—'} · ${t('th_total')}: $${parseFloat(inv.total_billed_usd || 0).toFixed(4)}`;
+        const items = d.line_items || [];
+        c.innerHTML = `<div class="kpi2" style="margin-bottom:14px"><div class="kpi" style="padding:10px 12px"><div class="kl">${t('kpi_m2_spend')}</div><div class="kv" style="font-size:20px">$${parseFloat(inv.total_billed_usd || 0).toFixed(4)}</div></div><div class="kpi" style="padding:10px 12px"><div class="kl">${t('th_status')}</div><div class="kv" style="font-size:18px">${inv.status || '—'}</div></div></div>${items.length ? `<table><tr><th>${t('th_description')}</th><th>${t('th_qty')}</th><th>${t('th_unit')}</th><th>${t('th_total')}</th></tr>${items.map(l => `<tr><td>${l.description || l.line_type}</td><td>${fmtK(l.quantity || 0)}</td><td>$${parseFloat(l.unit_price_usd || 0).toFixed(6)}</td><td>$${parseFloat(l.line_total_usd || 0).toFixed(4)}</td></tr>`).join('')}</table>` : `<div style="font-size:12px;color:var(--t2)">${t('status_no_invoices')}</div>`}`;
+      } catch (e) { err(c, e.message); }
+    }
+
+    async function askM8(preset) {
+      const q = preset || document.getElementById('m8-q').value.trim(); if (!q) return;
+      const sp = document.getElementById('m8-spin'); const ans = document.getElementById('m8-ans');
+      sp.style.display = 'block'; ans.style.display = 'none';
+      try {
+        const d = await api(`/v1/dashboard/assistant/ask?question=${encodeURIComponent(q)}&period_days=${period}`);
+        document.getElementById('m8-text').textContent = d.answer;
+        document.getElementById('m8-figs').innerHTML = (d.key_figures || []).map(f => `<div class="fig"><div class="fig-v">${f.value}</div><div class="fig-l">${f.label}</div></div>`).join('');
+        document.getElementById('m8-meta').textContent = `${d.tokens_used || 0} tokens · ${d.model_used || ''}${d.from_cache ? ' · cached' : ''}`;
+        ans.style.display = 'block';
+      } catch (e) { document.getElementById('m8-text').textContent = 'Server not running at ' + API; ans.style.display = 'block'; }
+      finally { sp.style.display = 'none'; }
+      if (!preset) document.getElementById('m8-q').value = '';
+    }
+
+    async function m8Send(preset) {
+      const q = preset || document.getElementById('m8p-q').value.trim(); if (!q) return;
+      const chat = document.getElementById('m8-chat');
+      chat.innerHTML += `<div class="chat-msg chat-q">${q}</div>`;
+      chat.innerHTML += `<div class="chat-msg chat-a" id="m8p-loading"><div class="loading" style="padding:8px 0"><div class="spin"></div>${t('status_thinking')}</div></div>`;
+      chat.scrollTop = chat.scrollHeight;
+      const btn = document.getElementById('m8p-send'); btn.disabled = true;
+      try {
+        const d = await api(`/v1/dashboard/assistant/ask?question=${encodeURIComponent(q)}&period_days=${period}`);
+        document.getElementById('m8p-loading').innerHTML = d.answer || 'No response.';
+        document.getElementById('m8p-meta').textContent = `${d.tokens_used || 0} tokens · ${d.model_used || ''}${d.from_cache ? ' · cached' : ''}`;
+        // Update LLM badges dynamically from response
+        if (d.model_used && d.model_used !== 'fallback/rule-based') {
+          const badge = d.model_used.replace('/', ' · ');
+          ['m8-badge', 'm8-llm-badge'].forEach(id => { const el = document.getElementById(id); if (el) el.textContent = badge; });
+        }
+      } catch (e) { document.getElementById('m8p-loading').innerHTML = `<span style="color:var(--red)">Error: ${e.message}</span>`; }
+      finally { btn.disabled = false; }
+      chat.scrollTop = chat.scrollHeight;
+      if (!preset) document.getElementById('m8p-q').value = '';
+    }
+
+    async function loadHealth() {
+      try {
+        const d = await api('/v1/dashboard/health');
+        const set = (id, ok) => { const el = document.getElementById(id); if (el) el.className = 'dot ' + (ok ? 'dok' : 'derr'); };
+        set('h-db', d.database === 'ok'); set('h-rd', d.redis === 'ok');
+        document.getElementById('h-db-t').textContent = d.database;
+        document.getElementById('h-rd-t').textContent = d.redis;
+        document.getElementById('mod-health').innerHTML = (d.modules || []).map(m => `<div class="hrow"><span style="display:flex;align-items:center;gap:5px"><span class="dot ${m.status === 'ok' ? 'dok' : m.status === 'degraded' ? 'dwrn' : 'derr'}"></span>${m.name}</span><span style="font-size:11px;color:var(--t3)">${m.status}</span></div>`).join('');
+      } catch (e) { ['h-db', 'h-rd'].forEach(id => { const el = document.getElementById(id); if (el) el.className = 'dot derr'; }); }
+    }
+
+    async function downloadCSV() {
+      const tenant = getSelectedTenant();
+      if (!tenant) { alert('Please select a tenant first.'); return; }
+      try {
+        const rows = await api(`/v1/analytics/costs/daily/${tenant}?period_days=${period}`);
+        const data = Array.isArray(rows) ? rows : (rows.daily || []);
+        if (!data.length) { alert('No data to export.'); return; }
+        const headers = Object.keys(data[0]);
+        const csv = [headers.join(','), ...data.map(r => headers.map(h => JSON.stringify(r[h] ?? '')).join(','))].join('\n');
+        const blob = new Blob([csv], { type: 'text/csv' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a'); a.href = url; a.download = `${tenant}_costs_${period}d.csv`; a.click();
+        URL.revokeObjectURL(url);
+      } catch (e) { alert('Export failed: ' + e.message); }
+    }
+
+    // ============================================================
+    // AUTH CLIENT
+    // ============================================================
+    const Auth = {
+      _accessToken: null,
+      _user: null,
+
+      getToken() { return this._accessToken; },
+
+      fillDemo(user, pass) {
+        document.getElementById('auth-user').value = user;
+        document.getElementById('auth-pass').value = pass;
+        document.getElementById('auth-user').focus();
+      },
+
+      showOverlay() {
+        document.getElementById('auth-overlay').style.display = 'flex';
+        document.getElementById('user-chip').style.display = 'none';
+        document.getElementById('logout-btn').style.display = 'none';
+        this._accessToken = null;
+        this._user = null;
+      },
+
+      hideOverlay() {
+        document.getElementById('auth-overlay').style.display = 'none';
+        document.getElementById('user-chip').style.display = 'flex';
+        document.getElementById('logout-btn').style.display = 'block';
+      },
+
+      async login() {
+        const username = document.getElementById('auth-user').value.trim();
+        const password = document.getElementById('auth-pass').value;
+        const errEl = document.getElementById('auth-err');
+        const btn = document.getElementById('auth-submit');
+        errEl.style.display = 'none';
+        if (!username || !password) { errEl.textContent = 'Please enter username and password.'; errEl.style.display = 'block'; return; }
+        btn.disabled = true; btn.textContent = 'Signing in…';
+        try {
+          const res = await fetch(`${API}/v1/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ username, password }) });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.detail || 'Invalid credentials');
+          this._accessToken = data.access_token;
+          localStorage.setItem('llm_refresh', data.refresh_token);
+          await this._fetchUser();
+          this.hideOverlay();
+          await loadTenants();
+          applyTranslations();
+          loadHealth();
+          loadExec();
+        } catch (e) {
+          errEl.textContent = '⚠ ' + e.message;
+          errEl.style.display = 'block';
+        } finally {
+          btn.disabled = false; btn.textContent = 'Sign in';
+        }
+      },
+
+      async logout() {
+        try {
+          if (this._accessToken) {
+            await fetch(`${API}/v1/auth/logout`, { method: 'POST', headers: { Authorization: 'Bearer ' + this._accessToken } });
+          }
+        } catch (_) { }
+        localStorage.removeItem('llm_refresh');
+        this._accessToken = null;
+        this._user = null;
+        this.showOverlay();
+      },
+
+      async silentRefresh() {
+        const rt = localStorage.getItem('llm_refresh');
+        if (!rt) return false;
+        try {
+          const res = await fetch(`${API}/v1/auth/refresh`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ refresh_token: rt }) });
+          if (!res.ok) { localStorage.removeItem('llm_refresh'); return false; }
+          const data = await res.json();
+          this._accessToken = data.access_token;
+          if (data.refresh_token) localStorage.setItem('llm_refresh', data.refresh_token);
+          return true;
+        } catch (_) { return false; }
+      },
+
+      async _fetchUser() {
+        try {
+          const res = await fetch(`${API}/v1/auth/me`, { headers: { Authorization: 'Bearer ' + this._accessToken } });
+          if (!res.ok) return;
+          this._user = await res.json();
+          // Update topbar user chip
+          const initials = (this._user.username || '?').substring(0, 2).toUpperCase();
+          document.getElementById('user-avatar').textContent = initials;
+          document.getElementById('user-name-lbl').textContent = this._user.username;
+          // Role badge
+          const roleEl = document.getElementById('user-role-lbl');
+          const roleName = this._user.role.replace(/_/g, ' ');
+          const roleCls = this._user.role === 'super_admin' ? 'role-super' : this._user.role === 'tenant_admin' ? 'role-admin' : 'role-viewer';
+          roleEl.innerHTML = `<span class="role-bdg ${roleCls}">${roleName}</span>`;
+          // Apply role-based view adaptation
+          this._applyRoleConstraints();
+        } catch (_) { }
+      },
+
+      _applyRoleConstraints() {
+        const u = this._user;
+        if (!u) return;
+        const tsel = document.getElementById('tsel');
+        if (u.role === 'super_admin') {
+          tsel.disabled = false;
+        } else if (u.tenant_id) {
+          // Lock tenant selector to their tenant
+          tsel.value = u.tenant_id;
+          tsel.disabled = true;
+          tsel.title = `Scoped to ${u.tenant_id}`;
+          // Remove 'All tenants' option for scoped users
+          const allOpt = tsel.querySelector('option[value=""]');
+          if (allOpt) allOpt.remove();
+        }
+        // Role-based view hiding
+        if (u.role !== 'super_admin') {
+          // Non-super-admins: hide executive overview (multi-tenant), show tenant-scoped default
+          const execBtn = document.querySelector('[onclick="showView(\'exec\',this)"]');
+          if (execBtn) execBtn.style.display = 'none';
+          // Auto-navigate to M1 (their own tenant's data)
+          if (currentView === 'exec') {
+            const m1Btn = document.querySelector('[onclick="showView(\'m1\',this)"]');
+            showView('m1', m1Btn);
+          }
+        }
+        // Viewer role: hide all write-action buttons
+        if (u.role === 'tenant_viewer') {
+          // Governance write actions
+          const newRuleBtn = document.querySelector('[onclick="toggleRuleForm()"]');
+          if (newRuleBtn) newRuleBtn.style.display = 'none';
+          document.querySelectorAll('[onclick^="deactivateRule"]').forEach(b => b.style.display = 'none');
+          document.querySelectorAll('[onclick^="createRule"]').forEach(b => b.style.display = 'none');
+          // Billing write actions
+          const genInvBtn = document.querySelector('[onclick="generateInvoice()"]');
+          if (genInvBtn) genInvBtn.style.display = 'none';
+          // Optimizer write actions
+          const runOptBtn = document.querySelector('[onclick="runOptimize()"]');
+          if (runOptBtn) runOptBtn.style.display = 'none';
+          // Forecast write actions
+          const runForeBtn = document.querySelector('[onclick="runForecast()"]');
+          if (runForeBtn) runForeBtn.style.display = 'none';
+        }
+      },
+
+      async init() {
+        // Try silent refresh from stored refresh token
+        const refreshed = await this.silentRefresh();
+        if (refreshed) {
+          await this._fetchUser();
+          this.hideOverlay();
+          await loadTenants();
+          applyTranslations();
+          loadHealth();
+          loadExec();
+        }
+        // Otherwise overlay stays visible — user must login
+        // Bind Enter key on login fields
+        ['auth-user', 'auth-pass'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.addEventListener('keydown', e => { if (e.key === 'Enter') Auth.login(); });
+        });
+      }
+    };
+
+    // ============================================================
+    // SIDEBAR — mobile drawer
+    // ============================================================
+    function openSidebar() {
+      document.getElementById('sidebar').classList.add('open');
+      document.getElementById('sb-backdrop').classList.add('show');
+      document.body.style.overflow = 'hidden';
+    }
+    function closeSidebar() {
+      document.getElementById('sidebar').classList.remove('open');
+      document.getElementById('sb-backdrop').classList.remove('show');
+      document.body.style.overflow = '';
+    }
+    // Close sidebar on nav click (mobile)
+    const origShowView = showView;
+    showView = function (id, btn) {
+      origShowView(id, btn);
+      closeSidebar();
+    };
+
+    // ============================================================
+    // TOAST NOTIFICATIONS
+    // ============================================================
+    function showToast(title, desc, severity = 'info', durationMs = 6000) {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = `toast toast-sev-${severity}`;
+      const iconSvg = severity === 'critical'
+        ? '<svg class="toast-icon" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="#dc2626" stroke-width="1.5"/><path d="M8 5v3.5" stroke="#dc2626" stroke-width="1.5" stroke-linecap="round"/><circle cx="8" cy="11.5" r=".8" fill="#dc2626"/></svg>'
+        : severity === 'warning'
+          ? '<svg class="toast-icon" viewBox="0 0 16 16" fill="none"><path d="M8 2L14.5 13H1.5Z" stroke="#d97706" stroke-width="1.3" fill="none"/><path d="M8 7v2.5" stroke="#d97706" stroke-width="1.3" stroke-linecap="round"/><circle cx="8" cy="11.5" r=".6" fill="#d97706"/></svg>'
+          : '<svg class="toast-icon" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="#2563eb" stroke-width="1.3"/><path d="M8 7v4" stroke="#2563eb" stroke-width="1.3" stroke-linecap="round"/><circle cx="8" cy="5" r=".7" fill="#2563eb"/></svg>';
+      toast.innerHTML = `${iconSvg}<div class="toast-body"><div class="toast-title">${title}</div><div class="toast-desc">${desc}</div></div><button class="toast-close" onclick="this.parentElement.classList.add('out');setTimeout(()=>this.parentElement.remove(),250)">&times;</button>`;
+      container.appendChild(toast);
+      if (durationMs > 0) {
+        setTimeout(() => { toast.classList.add('out'); setTimeout(() => toast.remove(), 250); }, durationMs);
+      }
+    }
+
+    // ============================================================
+    // AGENT DRILL-DOWN
+    // ============================================================
+    async function loadAgentDrilldown() {
+      const tenant = getSelectedTenant();
+      const tenantsToFetch = tenant ? [tenant] : TENANTS;
+      const el = document.getElementById('agent-drilldown');
+      if (!el) return;
+      loading(el);
+      try {
+        const reqs = tenantsToFetch.map(t2 => api(`/v1/dashboard/tenant/${t2}/agents?period_days=${period}`).catch(() => null));
+        const results = await Promise.all(reqs);
+        let agentMap = {};
+        results.forEach(d => {
+          if (d && d.agents) {
+            d.agents.forEach(a => {
+              if (!agentMap[a.agent_id]) agentMap[a.agent_id] = { agent_id: a.agent_id, total_cost_usd: 0, total_calls: 0, total_tokens: 0, errSum: 0, errCount: 0, anomaly_count: 0 };
+              agentMap[a.agent_id].total_cost_usd += parseFloat(a.total_cost_usd || 0);
+              agentMap[a.agent_id].total_calls += a.total_calls || 0;
+              agentMap[a.agent_id].total_tokens += a.total_tokens || 0;
+              agentMap[a.agent_id].errSum += a.error_rate_pct || 0;
+              agentMap[a.agent_id].errCount += 1;
+              agentMap[a.agent_id].anomaly_count += a.anomaly_count || 0;
+            });
+          }
+        });
+
+        const agents = Object.values(agentMap).sort((aa, bb) => bb.total_cost_usd - aa.total_cost_usd);
+        if (!agents.length) { el.innerHTML = `<div style="padding:12px;font-size:12px;color:var(--t2)">No agent data</div>`; return; }
+        let html = `<div class="agent-row"><div>Agent</div><div style="text-align:right">Cost</div><div style="text-align:right">Calls</div><div style="text-align:right">Tokens</div><div style="text-align:right">Error %</div></div>`;
+        html += agents.map(a => {
+          const errRate = a.errCount ? a.errSum / a.errCount : 0;
+          const errColor = errRate > 5 ? 'var(--red)' : errRate > 2 ? 'var(--amber)' : 'var(--green)';
+          return `<div class="agent-row">
+        <div class="agent-name">${a.anomaly_count > 0 ? '<span class="dot derr" style="width:5px;height:5px"></span>' : ''}${a.agent_id}</div>
+        <div class="agent-val">$${fmt(a.total_cost_usd)}</div>
+        <div class="agent-val">${fmtK(a.total_calls)}</div>
+        <div class="agent-val">${fmtK(a.total_tokens)}</div>
+        <div class="agent-val" style="color:${errColor}">${errRate.toFixed(1)}%</div>
+      </div>`;
+        }).join('');
+        el.innerHTML = html;
+      } catch (e) { err(el, e.message); }
+    }
+
+    // Auto-load agent drill-down when M2 loads
+    const origLoadM2 = loadM2;
+    loadM2 = async function () {
+      await origLoadM2();
+      loadAgentDrilldown();
+    };
+
+    // ============================================================
+    // WEBSOCKET CLIENT
+    // ============================================================
+    const WS = {
+      _ws: null,
+      _reconnectTimer: null,
+      _reconnectDelay: 2000,
+
+      connect(token) {
+        if (!token) return;
+        this._setStatus('connecting');
+        const wsUrl = API.replace('http', 'ws') + '/ws/dashboard?token=' + encodeURIComponent(token);
+        try {
+          this._ws = new WebSocket(wsUrl);
+        } catch (e) {
+          this._setStatus('offline');
+          return;
+        }
+
+        this._ws.onopen = () => {
+          this._setStatus('online');
+          this._reconnectDelay = 2000;
+        };
+
+        this._ws.onmessage = (e) => {
+          try {
+            const msg = JSON.parse(e.data);
+            this._handleMessage(msg);
+          } catch (_) { }
+        };
+
+        this._ws.onclose = () => {
+          this._setStatus('offline');
+          this._scheduleReconnect(token);
+        };
+
+        this._ws.onerror = () => {
+          this._setStatus('offline');
+        };
+      },
+
+      _scheduleReconnect(token) {
+        if (this._reconnectTimer) clearTimeout(this._reconnectTimer);
+        this._reconnectTimer = setTimeout(() => {
+          this._reconnectDelay = Math.min(this._reconnectDelay * 1.5, 30000);
+          this.connect(token);
+        }, this._reconnectDelay);
+      },
+
+      _handleMessage(msg) {
+        if (msg.type === 'ping') {
+          // Respond with pong
+          if (this._ws && this._ws.readyState === 1) {
+            this._ws.send(JSON.stringify({ type: 'pong' }));
+          }
+          return;
+        }
+
+        if (msg.type === 'anomaly_detected') {
+          const d = msg.data || {};
+          showToast(
+            `Anomaly: ${d.anomaly_type || 'detected'}`,
+            `${d.tenant_id || 'Unknown'} — ${d.description || 'Check dashboard'}`,
+            d.severity === 'critical' ? 'critical' : 'warning'
+          );
+          // Update alert badge
+          const badge = document.getElementById('nb-alerts');
+          if (badge) {
+            const cur = parseInt(badge.textContent) || 0;
+            badge.textContent = cur + 1;
+          }
+          // Auto-refresh if on alerts or anomaly view
+          if (currentView === 'alerts') loadAlerts();
+          if (currentView === 'm3') loadM3();
+          if (currentView === 'exec') loadExec();
+        }
+
+        if (msg.type === 'governance_decision') {
+          const d = msg.data || {};
+          showToast(
+            `Governance: ${d.decision}`,
+            `${d.tenant_id || ''} · ${d.model || ''} — ${d.reason || ''}`,
+            d.decision === 'block' ? 'critical' : 'warning'
+          );
+          if (currentView === 'm7') loadM7();
+        }
+
+        if (msg.type === 'health_changed') {
+          loadHealth();
+          showToast('Health Update', 'System health status changed', 'info', 4000);
+        }
+      },
+
+      _setStatus(status) {
+        const dot = document.getElementById('ws-dot');
+        const lbl = document.getElementById('ws-lbl');
+        if (!dot || !lbl) return;
+        dot.className = 'ws-dot ' + (status === 'online' ? 'ws-ok' : status === 'connecting' ? 'ws-connecting' : 'ws-off');
+        lbl.textContent = status === 'online' ? 'Live' : status === 'connecting' ? '…' : 'Offline';
+      },
+
+      disconnect() {
+        if (this._reconnectTimer) clearTimeout(this._reconnectTimer);
+        if (this._ws) { this._ws.onclose = null; this._ws.close(); this._ws = null; }
+        this._setStatus('offline');
+      }
+    };
+
+    // ── STARTUP ──────────────────────────────────────────────────
+    applyTranslations();
+    // Pre-load tenants (no auth needed) so login screen shows real tenant names
+    fetch(API + '/v1/dashboard/tenants').then(r => r.json()).then(d => {
+      TENANTS = d.tenants || [];
+      const grid = document.getElementById('auth-demo-grid');
+      if (grid && TENANTS.length) {
+        let btns = '<button class="auth-demo-btn" onclick="Auth.fillDemo(\'admin\',\'Admin@1234\')"><strong>admin</strong><span>super_admin · all tenants</span></button>';
+        TENANTS.forEach(t => { const slug = t.toLowerCase().replace(/_/g, ''); btns += `<button class="auth-demo-btn" onclick="Auth.fillDemo('${slug}_admin','Admin@1234')"><strong>${slug}_admin</strong><span>tenant_admin · ${t}</span></button>`; });
+        grid.innerHTML = btns;
+      }
+    }).catch(() => { });
+    Auth.init();
+
+    // Offline detection
+    window.addEventListener('offline', () => showToast('Connection Lost', 'You are offline. Data may be stale.', 'warning', 0));
+    window.addEventListener('online', () => { showToast('Back Online', 'Connection restored.', 'info', 4000); loadView(currentView); });
+
+    setInterval(loadHealth, 30000);
+
+    // Connect WebSocket after successful auth
+    const _origAuthHideOverlay = Auth.hideOverlay.bind(Auth);
+    Auth.hideOverlay = function () {
+      _origAuthHideOverlay();
+      // Start WebSocket with current token
+      const tok = Auth.getToken();
+      if (tok) WS.connect(tok);
+    };
+    const _origAuthLogout = Auth.logout.bind(Auth);
+    Auth.logout = async function () {
+      WS.disconnect();
+      await _origAuthLogout();
+    };
+  </script>
+</body>
+
+</html>

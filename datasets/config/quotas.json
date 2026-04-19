@@ -1,0 +1,25 @@
+{
+  "quotas": [
+    {
+      "tenant_id": "C1_SMALL",
+      "max_tokens_month": 1000000,
+      "max_cost_month_eur": 50,
+      "daily_token_limit": 50000,
+      "max_tokens_per_request": 8000
+    },
+    {
+      "tenant_id": "C2_MEDIUM",
+      "max_tokens_month": 5000000,
+      "max_cost_month_eur": 300,
+      "daily_token_limit": 250000,
+      "max_tokens_per_request": 16000
+    },
+    {
+      "tenant_id": "C3_ENTERPRISE",
+      "max_tokens_month": 50000000,
+      "max_cost_month_eur": 2000,
+      "daily_token_limit": 2000000,
+      "max_tokens_per_request": 32000
+    }
+  ]
+}

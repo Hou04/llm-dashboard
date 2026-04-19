@@ -1,0 +1,53 @@
+version: "3.8"
+
+services:
+
+  # ================================================
+  # PostgreSQL with TimescaleDB extension
+  # TimescaleDB makes time-based queries 10-100x faster
+  # Perfect for llm_token_log which is queried by time constantly
+  # ================================================
+  postgres:
+    image: timescale/timescaledb:latest-pg15
+    container_name: llm_postgres
+    environment:
+      POSTGRES_USER: llmuser
+      POSTGRES_PASSWORD: llmpassword
+      POSTGRES_DB: llmdashboard
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U llmuser -d llmdashboard"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ================================================
+  # Redis — in-memory data store
+  # Used for quota counters and rule caching
+  # Answers in 0.1ms vs PostgreSQL's 20-50ms
+  # ================================================
+  redis:
+    image: redis:7-alpine
+    container_name: llm_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+# ================================================
+# Volumes — persistent storage on your hard drive
+# Without this, data disappears when containers restart
+# ================================================
+volumes:
+  postgres_data:
+  redis_data:

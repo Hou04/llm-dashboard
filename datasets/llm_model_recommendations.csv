@@ -1,0 +1,12 @@
+tenant_id,agent_id,current_model,recommended_model,expected_monthly_saving_usd,expected_saving_pct,status,created_at
+C1_SMALL,financial_analyst,gpt-4,claude-3-haiku,387.98,60.3,proposed,2025-12-27T21:47:16.341820
+C1_SMALL,customer_support,gpt-4-turbo,mistral-small,63.32,27.45,proposed,2026-03-20T02:25:19.341820
+C1_SMALL,data_extractor,gpt-4,claude-3-haiku,56.49,32.28,dismissed,2026-01-03T19:06:59.341820
+C1_SMALL,code_generator,gpt-4,gpt-3.5-turbo,104.89,49.01,proposed,2026-02-23T23:23:18.341820
+C2_MEDIUM,customer_support,gpt-4-turbo,gpt-3.5-turbo,444.43,53.36,dismissed,2025-12-16T14:33:27.341820
+C2_MEDIUM,data_extractor,gpt-4,mistral-small,76.58,45.01,proposed,2026-03-03T17:52:13.341820
+C2_MEDIUM,code_generator,gpt-4-turbo,mistral-small,192.26,64.65,dismissed,2026-02-17T23:42:25.341820
+C3_ENTERPRISE,financial_analyst,gpt-4,claude-3-haiku,95.64,60.37,proposed,2025-12-03T02:17:45.341820
+C3_ENTERPRISE,customer_support,gpt-4-turbo,gpt-3.5-turbo,182.01,28.84,proposed,2025-10-27T08:49:24.341820
+C3_ENTERPRISE,data_extractor,gpt-4,mistral-small,253.8,21.62,dismissed,2026-02-02T20:36:31.341820
+C3_ENTERPRISE,code_generator,gpt-4-turbo,mistral-small,331.13,23.88,proposed,2026-03-05T17:41:09.341820
