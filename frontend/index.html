@@ -51,6 +51,60 @@
       }
     }
 
+    /* Manual dark mode toggle — overrides prefers-color-scheme */
+    html.dark {
+      --bg: #0b1120;
+      --card: #111827;
+      --card2: #182030;
+      --border: rgba(148, 163, 184, 0.08);
+      --border2: rgba(148, 163, 184, 0.16);
+      --t1: #e8eef7;
+      --t2: #94a3b8;
+      --t3: #475569;
+      --acc: #3b82f6;
+      --acc2: #2563eb;
+      --green: #10b981;
+      --red: #ef4444;
+      --amber: #f59e0b;
+      --blue: #60a5fa;
+    }
+
+    html.dark .err-state { background: #450a0a; color: #fca5a5; }
+    html.dark .m8-badge { background: rgba(59,130,246,.15); color: #93c5fd; }
+    html.dark .btn-danger { background: #7f1d1d; border-color: #7f1d1d; color: #fca5a5; }
+    html.dark .role-admin { background: #052e16; color: #86efac; }
+    html.dark .logout-btn { background: #450a0a; border-color: #7f1d1d; color: #f87171; }
+
+    html.light {
+      --bg: #f0f4f8;
+      --card: #ffffff;
+      --card2: #f7f9fc;
+      --border: rgba(15, 30, 60, 0.09);
+      --border2: rgba(15, 30, 60, 0.18);
+      --t1: #0f1e3c;
+      --t2: #4a5c78;
+      --t3: #8fa3bf;
+      --acc: #1a56db;
+      --acc2: #1447b8;
+      --green: #059669;
+      --red: #dc2626;
+      --amber: #d97706;
+      --blue: #2563eb;
+    }
+
+    .theme-toggle {
+      font-size: 16px;
+      padding: 4px 8px;
+      border-radius: var(--r);
+      border: 1px solid var(--border2);
+      background: var(--card2);
+      cursor: pointer;
+      color: var(--t2);
+      transition: all .15s;
+      line-height: 1;
+    }
+    .theme-toggle:hover { border-color: var(--acc); color: var(--acc); }
+
     * {
       box-sizing: border-box;
       margin: 0;
@@ -1850,6 +1904,15 @@
             <path d="M5.5 10.5Q8 12 10.5 10.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"
               opacity=".6" />
           </svg><span data-i18n="nav_assistant">AI Assistant</span></button>
+        <div class="nav-grp" id="nav-admin-grp" data-i18n="grp_admin">Administration</div>
+        <button class="nb" id="nav-users" onclick="showView('users',this)"><svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+            <circle cx="8" cy="5" r="3" stroke="currentColor" stroke-width="1.2" opacity=".7" />
+            <path d="M2 14c0-3 2.5-5 6-5s6 2 6 5" stroke="currentColor" stroke-width="1.2" opacity=".7" />
+          </svg><span data-i18n="nav_users">User Management</span></button>
+        <button class="nb" id="nav-audit" onclick="showView('audit',this)"><svg width="15" height="15" viewBox="0 0 16 16" fill="none">
+            <rect x="3" y="2" width="10" height="12" rx="1.5" stroke="currentColor" stroke-width="1.2" opacity=".7" />
+            <path d="M6 5h4M6 7.5h4M6 10h2" stroke="currentColor" stroke-width="1" stroke-linecap="round" opacity=".7" />
+          </svg><span data-i18n="nav_audit">Audit Log</span></button>
       </div>
       <div class="sb-foot">
         <div
@@ -1885,6 +1948,7 @@
           <button class="pbtn" onclick="setPeriod(90,this)">90d</button>
           <button class="btn-refresh pbtn" onclick="refreshCurrent()">⟳ <span
               data-i18n="btn_refresh">Refresh</span></button>
+          <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="Toggle dark/light mode">🌙</button>
           <select class="lang-sel" id="lang-sel" onchange="setLang(this.value)" title="Language">
             <option value="en">🇬🇧 EN</option>
             <option value="fr">🇫🇷 FR</option>
@@ -2408,6 +2472,47 @@
             <div id="b-inv-content"></div>
           </div>
         </div>
+        <!-- ── USER MANAGEMENT ──────────────────────────────────── -->
+        <div id="v-users" class="view">
+          <div class="card">
+            <div class="card-hdr"><span class="card-title" data-i18n="card_user_mgmt">User Management</span></div>
+            <div id="users-list"><div class="loading"><div class="spin"></div> Loading users…</div></div>
+          </div>
+        </div>
+        <!-- ── AUDIT LOG ───────────────────────────────────────── -->
+        <div id="v-audit" class="view">
+          <div class="kpi3" style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+            <div class="card"><div class="kl" data-i18n="kpi_audit_total">Total Events</div><div class="kv" id="audit-total">—</div></div>
+            <div class="card"><div class="kl" data-i18n="kpi_audit_actions">Unique Actions</div><div class="kv" id="audit-actions">—</div></div>
+            <div class="card"><div class="kl" data-i18n="kpi_audit_users">Active Users</div><div class="kv" id="audit-users">—</div></div>
+          </div>
+          <div class="card">
+            <div class="card-hdr">
+              <span class="card-title" data-i18n="card_audit_log">Audit Log</span>
+              <div style="display:flex;gap:6px">
+                <select id="audit-filter-action" onchange="loadAudit()" style="font-size:11px;padding:3px 6px;border-radius:6px;border:1px solid var(--border2);background:var(--card2);color:var(--t1);font-family:inherit">
+                  <option value="">All actions</option>
+                  <option value="create">Create</option>
+                  <option value="update">Update</option>
+                  <option value="deactivate">Deactivate</option>
+                  <option value="login">Login</option>
+                </select>
+                <select id="audit-filter-resource" onchange="loadAudit()" style="font-size:11px;padding:3px 6px;border-radius:6px;border:1px solid var(--border2);background:var(--card2);color:var(--t1);font-family:inherit">
+                  <option value="">All resources</option>
+                  <option value="governance_rule">Governance Rule</option>
+                  <option value="user">User</option>
+                  <option value="config">Config</option>
+                </select>
+              </div>
+            </div>
+            <div class="tbl-scroll">
+              <table id="audit-table">
+                <thead><tr><th>Time</th><th>User</th><th>Action</th><th>Resource</th><th>Description</th><th>Status</th></tr></thead>
+                <tbody id="audit-tbody"><tr><td colspan="6" class="loading"><div class="spin"></div> Loading…</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
         <div id="v-m8" class="view">
           <div class="card" style="flex:1">
             <div class="card-hdr">
@@ -2478,6 +2583,11 @@
         ph_m8_quick: 'Ask about costs, anomalies, governance, forecasts…', ph_m8_full: 'Ask anything about your LLM platform costs and governance…',
         lbl_m8_quick: 'Quick Ask', lbl_m8_full: 'AI Assistant', lbl_m8_badge: 'Groq · Llama-3.3-70b',
         health_title: 'System Health', period_all: 'All tenants',
+        grp_admin: 'Administration', nav_users: 'User Management', nav_audit: 'Audit Log',
+        title_users: 'User Management', title_audit: 'Audit Log',
+        meta_users: 'View and manage platform users', meta_audit: 'Admin action compliance log',
+        card_user_mgmt: 'User Management', card_audit_log: 'Audit Log',
+        kpi_audit_total: 'Total Events', kpi_audit_actions: 'Unique Actions', kpi_audit_users: 'Active Users',
         th_tenant: 'Tenant', th_decision: 'Decision', th_model: 'Model', th_tokens: 'Tokens', th_time: 'Time', th_type: 'Type', th_limit: 'Limit', th_status: 'Status', th_action: 'Action', th_description: 'Description', th_qty: 'Qty', th_unit: 'Unit Price', th_total: 'Total',
         scenario_likely: 'Likely', scenario_pessimistic: 'Pessimistic', scenario_optimistic: 'Optimistic',
       },
@@ -2621,8 +2731,8 @@
     const COLORS = ['#1a56db', '#059669', '#d97706', '#7c3aed', '#db2777', '#0891b2', '#be123c', '#4f46e5'];
     let period = 30, currentView = 'exec', charts = {};
 
-    const VIEW_TITLE_KEYS = { exec: 'title_exec', alerts: 'title_alerts', m1: 'title_m1', m2: 'title_m2', m3: 'title_m3', m4: 'title_m4', m5: 'title_m5', m6: 'title_m6', m7: 'title_m7', m8: 'title_m8', m10: 'title_m10' };
-    const VIEW_META_KEYS = { exec: 'meta_exec', alerts: 'meta_alerts', m1: 'meta_m1', m2: 'meta_m2', m3: 'meta_m3', m4: 'meta_m4', m5: 'meta_m5', m6: 'meta_m6', m7: 'meta_m7', m8: 'meta_m8', m10: 'meta_m10' };
+    const VIEW_TITLE_KEYS = { exec: 'title_exec', alerts: 'title_alerts', m1: 'title_m1', m2: 'title_m2', m3: 'title_m3', m4: 'title_m4', m5: 'title_m5', m6: 'title_m6', m7: 'title_m7', m8: 'title_m8', m10: 'title_m10', users: 'title_users', audit: 'title_audit' };
+    const VIEW_META_KEYS = { exec: 'meta_exec', alerts: 'meta_alerts', m1: 'meta_m1', m2: 'meta_m2', m3: 'meta_m3', m4: 'meta_m4', m5: 'meta_m5', m6: 'meta_m6', m7: 'meta_m7', m8: 'meta_m8', m10: 'meta_m10', users: 'meta_users', audit: 'meta_audit' };
 
     function updatePageMeta(id) {
       const titleEl = document.getElementById('pg-title');
@@ -2666,6 +2776,88 @@
       else if (id === 'm6') loadM6();
       else if (id === 'm7') loadM7();
       else if (id === 'm10') loadM10();
+      else if (id === 'users') loadUsers();
+      else if (id === 'audit') loadAudit();
+    }
+
+    // ============================================================
+    // DARK MODE TOGGLE
+    // ============================================================
+    function toggleTheme() {
+      const html = document.documentElement;
+      const btn = document.getElementById('theme-toggle');
+      if (html.classList.contains('dark')) {
+        html.classList.remove('dark');
+        html.classList.add('light');
+        btn.textContent = '🌙';
+        localStorage.setItem('theme', 'light');
+      } else {
+        html.classList.remove('light');
+        html.classList.add('dark');
+        btn.textContent = '☀️';
+        localStorage.setItem('theme', 'dark');
+      }
+    }
+    // Restore theme on load
+    (function() {
+      const saved = localStorage.getItem('theme');
+      if (saved === 'dark') { document.documentElement.classList.add('dark'); }
+      else if (saved === 'light') { document.documentElement.classList.add('light'); }
+    })();
+
+    // ============================================================
+    // USER MANAGEMENT
+    // ============================================================
+    async function loadUsers() {
+      const el = document.getElementById('users-list');
+      el.innerHTML = '<div class="loading"><div class="spin"></div> Loading users…</div>';
+      try {
+        const d = await api('/v1/auth/users');
+        const users = d.users || d || [];
+        if (!users.length) { el.innerHTML = '<div style="padding:14px;color:var(--t2);font-size:12px">No users found.</div>'; return; }
+        let html = '<div class="tbl-scroll"><table><thead><tr><th>Username</th><th>Role</th><th>Tenant</th><th>Status</th><th>Created</th></tr></thead><tbody>';
+        users.forEach(u => {
+          const role = u.role || 'viewer';
+          const roleClass = role === 'super_admin' ? 'role-super' : role === 'tenant_admin' ? 'role-admin' : 'role-viewer';
+          const status = u.is_active !== false ? '<span style="color:var(--green)">● Active</span>' : '<span style="color:var(--t3)">○ Inactive</span>';
+          const created = u.created_at ? new Date(u.created_at).toLocaleDateString() : '—';
+          html += `<tr><td>${u.username}</td><td><span class="role-bdg ${roleClass}">${role}</span></td><td>${u.tenant_id||'all'}</td><td>${status}</td><td>${created}</td></tr>`;
+        });
+        html += '</tbody></table></div>';
+        el.innerHTML = html;
+      } catch (e) {
+        el.innerHTML = `<div class="err-state">Failed to load users: ${e.message}</div>`;
+      }
+    }
+
+    // ============================================================
+    // AUDIT LOG
+    // ============================================================
+    async function loadAudit() {
+      const tbody = document.getElementById('audit-tbody');
+      tbody.innerHTML = '<tr><td colspan="6"><div class="loading"><div class="spin"></div> Loading…</div></td></tr>';
+      const action = document.getElementById('audit-filter-action')?.value || '';
+      const resource = document.getElementById('audit-filter-resource')?.value || '';
+      let url = '/v1/audit-log?limit=100';
+      if (action) url += '&action=' + action;
+      if (resource) url += '&resource_type=' + resource;
+      try {
+        const d = await api(url);
+        const entries = d.entries || [];
+        document.getElementById('audit-total').textContent = entries.length;
+        const actions = new Set(entries.map(e => e.action));
+        document.getElementById('audit-actions').textContent = actions.size;
+        const users = new Set(entries.map(e => e.username));
+        document.getElementById('audit-users').textContent = users.size;
+        if (!entries.length) { tbody.innerHTML = '<tr><td colspan="6" style="padding:14px;color:var(--t2)">No audit events found.</td></tr>'; return; }
+        tbody.innerHTML = entries.map(e => {
+          const time = e.timestamp ? new Date(e.timestamp).toLocaleString() : '—';
+          const actionBdg = e.action === 'create' ? 'bg' : e.action === 'update' ? 'bw' : e.action === 'deactivate' ? 'bh' : 'bn';
+          return `<tr><td style="white-space:nowrap">${time}</td><td>${e.username}</td><td><span class="bdg ${actionBdg}">${e.action}</span></td><td>${e.resource_type}</td><td style="max-width:240px;overflow:hidden;text-overflow:ellipsis">${e.description||'—'}</td><td><span class="bdg ${e.status==='success'?'bg':'bc'}">${e.status}</span></td></tr>`;
+        }).join('');
+      } catch (e) {
+        tbody.innerHTML = `<tr><td colspan="6" class="err-state">Failed to load audit log: ${e.message}</td></tr>`;
+      }
     }
 
     // ============================================================
@@ -2708,6 +2900,7 @@
     // UTILITIES
     // ============================================================
     function fmt(n) { return parseFloat(n || 0).toFixed(2); }
+    function fmtUsd(n) { return fmt(n); }
     function fmtK(n) { n = parseFloat(n || 0); return n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1000 ? (n / 1000).toFixed(0) + 'K' : String(Math.round(n)); }
     function bdg(sev) { const m = { critical: 'bc', high: 'bh', warning: 'bw', ok: 'bg', info: 'bn' }; return `<span class="bdg ${m[sev] || 'bn'}">${sev}</span>`; }
     async function api(path, opts = {}) {
@@ -2808,6 +3001,27 @@
           fe.innerHTML = `<div class="frow"><span>${tenant}</span><div style="text-align:right"><div style="font-size:12px;font-weight:600">$${fmt(d.cost.total_cost_usd)}</div><div style="font-size:10px;color:var(--t3);">${f.trend_slope_description || 'No forecast available'}</div></div></div>`;
 
           document.getElementById('exec-gov').innerHTML = `<div class="kpi2" style="margin-bottom:10px"><div class="kpi" style="padding:10px 12px"><div class="kl">${t('kpi_m7_blocked')}</div><div class="kv" style="font-size:18px">${fmtK(d.governance.blocked_calls || 0)}</div></div><div class="kpi" style="padding:10px 12px"><div class="kl">${t('kpi_m7_rules')}</div><div class="kv" style="font-size:18px">${d.governance.active_rules_count || 0}</div></div></div><div style="font-size:11px;color:var(--t2)">${t('nav_governance')}: <button class="cl" onclick="showView('m7',null)" style="font-size:11px">${t('btn_view')} ↗</button></div>`;
+
+          // Optimization Opportunities — tenant-specific
+          try {
+            const opts = await apiSafe('/v1/forecasting/optimize/all/models');
+            if (opts) {
+              let recs = Array.isArray(opts) ? opts : (opts.recommendations || []);
+              recs = recs.filter(r => r.tenant_id === tenant);
+              if (recs.length > 0) {
+                document.getElementById('exec-opt').innerHTML = recs.slice(0, 3).map(r => {
+                  const s2 = parseFloat(r.expected_monthly_saving_usd || 0);
+                  return `<div class="opt-row"><div><div style="font-size:12px;font-weight:600">${r.agent_id} <span style="color:var(--t2);font-weight:400">${r.current_model} → ${r.recommended_model}</span></div><div style="font-size:10px;color:var(--t2);margin-top:2px">${r.status}</div></div><div style="text-align:right"><div style="font-size:13px;font-weight:700;color:${s2 > 0 ? 'var(--green)' : 'var(--t2)'}">${s2 > 0 ? '−$' + s2.toFixed(2) + '/mo' : '—'}</div></div></div>`;
+                }).join('');
+              } else {
+                document.getElementById('exec-opt').innerHTML = `<div class="opt-row"><div><div style="font-size:12px;font-weight:500">${t('card_model_recs')}</div><div style="font-size:10px;color:var(--t2)">No optimization opportunities for ${tenant}</div></div><button class="btn" onclick="showView('m5',null)" style="font-size:11px">${t('btn_view')} ↗</button></div>`;
+              }
+            } else {
+              document.getElementById('exec-opt').innerHTML = `<div class="opt-row"><div><div style="font-size:12px;font-weight:500">${t('card_model_recs')}</div><div style="font-size:10px;color:var(--t2)">${t('meta_m5')}</div></div><button class="btn" onclick="showView('m5',null)" style="font-size:11px">${t('btn_view')} ↗</button></div>`;
+            }
+          } catch(_) {
+            document.getElementById('exec-opt').innerHTML = `<div class="opt-row"><div><div style="font-size:12px;font-weight:500">${t('card_model_recs')}</div><div style="font-size:10px;color:var(--t2)">${t('meta_m5')}</div></div><button class="btn" onclick="showView('m5',null)" style="font-size:11px">${t('btn_view')} ↗</button></div>`;
+          }
           return;
         }
 
@@ -3631,16 +3845,33 @@
 
     // ── STARTUP ──────────────────────────────────────────────────
     applyTranslations();
-    // Pre-load tenants (no auth needed) so login screen shows real tenant names
-    fetch(API + '/v1/dashboard/tenants').then(r => r.json()).then(d => {
-      TENANTS = d.tenants || [];
-      const grid = document.getElementById('auth-demo-grid');
-      if (grid && TENANTS.length) {
-        let btns = '<button class="auth-demo-btn" onclick="Auth.fillDemo(\'admin\',\'Admin@1234\')"><strong>admin</strong><span>super_admin · all tenants</span></button>';
-        TENANTS.forEach(t => { const slug = t.toLowerCase().replace(/_/g, ''); btns += `<button class="auth-demo-btn" onclick="Auth.fillDemo('${slug}_admin','Admin@1234')"><strong>${slug}_admin</strong><span>tenant_admin · ${t}</span></button>`; });
-        grid.innerHTML = btns;
-      }
-    }).catch(() => { });
+    // Pre-load tenants for login screen — try with stored refresh token if available
+    (async function preloadTenants() {
+      try {
+        const headers = { 'Content-Type': 'application/json' };
+        // Try silent refresh first to get a valid token
+        const rt = localStorage.getItem('llm_refresh');
+        if (rt) {
+          try {
+            const rr = await fetch(`${API}/v1/auth/refresh`, { method: 'POST', headers, body: JSON.stringify({ refresh_token: rt }) });
+            if (rr.ok) {
+              const rd = await rr.json();
+              headers['Authorization'] = 'Bearer ' + rd.access_token;
+            }
+          } catch(_) { /* no stored session — that's fine */ }
+        }
+        const r = await fetch(API + '/v1/dashboard/tenants', { headers });
+        if (!r.ok) return; // auth required and no token — skip gracefully
+        const d = await r.json();
+        TENANTS = d.tenants || [];
+        const grid = document.getElementById('auth-demo-grid');
+        if (grid && TENANTS.length) {
+          let btns = '<button class="auth-demo-btn" onclick="Auth.fillDemo(\'admin\',\'Admin@1234\')"><strong>admin</strong><span>super_admin · all tenants</span></button>';
+          TENANTS.forEach(t => { const slug = t.toLowerCase().replace(/_/g, ''); btns += `<button class="auth-demo-btn" onclick="Auth.fillDemo('${slug}_admin','Admin@1234')"><strong>${slug}_admin</strong><span>tenant_admin · ${t}</span></button>`; });
+          grid.innerHTML = btns;
+        }
+      } catch(_) { /* server not reachable — login page still works with admin button */ }
+    })();
     Auth.init();
 
     // Offline detection

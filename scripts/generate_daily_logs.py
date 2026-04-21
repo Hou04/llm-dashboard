@@ -154,7 +154,7 @@ def generate_day(day: date, tenants, models, dry_run=False, output_dir=None):
         writer.writeheader()
         writer.writerows(rows)
 
-    print(f"  {day}: {len(rows)} rows → {file_path}")
+    print(f"  {day}: {len(rows)} rows -> {file_path}")
     return rows
 
 

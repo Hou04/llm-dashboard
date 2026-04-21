@@ -138,15 +138,19 @@ async def resolve_anomaly(
 async def get_all_anomalies(
     hours: int = Query(default=24, ge=1, le=168),
     severity: Optional[str] = Query(default=None),
+    skip: int = Query(default=0, ge=0, description="Number of items to skip (pagination offset)"),
+    limit: int = Query(default=50, ge=1, le=200, description="Max items to return"),
     service: DetectionService = Depends(get_detection_service),
     _user: CurrentUser = Depends(require_tenant_viewer),
 ) -> AnomalyListResponse:
     anomalies = await service.get_all_recent_anomalies(
         hours=hours, severity=severity
     )
+    total = len(anomalies)
+    paginated = anomalies[skip:skip + limit]
     return AnomalyListResponse(
-        anomalies=[AnomalyResponse.model_validate(a) for a in anomalies],
-        total=len(anomalies),
+        anomalies=[AnomalyResponse.model_validate(a) for a in paginated],
+        total=total,
     )
 
 

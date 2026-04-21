@@ -25,6 +25,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from core.database import get_db
 from core.config_registry import config
 from core.observability import metrics
+from modules.auth.dependencies import require_super_admin
+from modules.auth.schemas import CurrentUser
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/v1/pipeline", tags=["Pipeline"])
@@ -61,6 +63,72 @@ async def get_detailed_metrics() -> dict:
     return metrics.get_snapshot()
 
 
+@metrics_router.get(
+    "/metrics/prometheus",
+    summary="Prometheus text exposition format",
+)
+async def get_prometheus_metrics():
+    """
+    Returns metrics in Prometheus text exposition format.
+
+    Configure Prometheus to scrape this endpoint:
+    ```yaml
+    scrape_configs:
+      - job_name: 'llm-dashboard'
+        metrics_path: '/v1/metrics/prometheus'
+        static_configs:
+          - targets: ['api:8000']
+    ```
+    """
+    from starlette.responses import Response as StarletteResponse
+    return StarletteResponse(
+        content=metrics.prometheus_export(),
+        media_type="text/plain; version=0.0.4; charset=utf-8",
+    )
+
+
+@metrics_router.get(
+    "/audit-log",
+    summary="Query the admin audit log",
+)
+async def query_audit_log(
+    action: str | None = FastQuery(default=None, description="Filter by action: create, update, delete, login"),
+    resource_type: str | None = FastQuery(default=None, description="Filter by resource: governance_rule, user, config"),
+    user_id: str | None = FastQuery(default=None, description="Filter by user ID"),
+    tenant_id: str | None = FastQuery(default=None, description="Filter by tenant ID"),
+    skip: int = FastQuery(default=0, ge=0, description="Pagination offset"),
+    limit: int = FastQuery(default=50, ge=1, le=200, description="Max items to return"),
+    session: AsyncSession = Depends(get_db),
+    _user: CurrentUser = Depends(require_super_admin),
+) -> dict:
+    """
+    Query the admin audit log with optional filters.
+
+    Returns chronologically ordered entries (newest first).
+    Each entry records who did what, when, and the details.
+    """
+    from core.audit import audit
+    entries = await audit.query(
+        session=session,
+        action=action,
+        resource_type=resource_type,
+        user_id=user_id,
+        tenant_id=tenant_id,
+        limit=limit,
+        skip=skip,
+    )
+    return {
+        "entries": entries,
+        "total": len(entries),
+        "filters": {
+            "action": action,
+            "resource_type": resource_type,
+            "user_id": user_id,
+            "tenant_id": tenant_id,
+        },
+    }
+
+
 # ── Pipeline endpoints (auth required) ──────────────────────
 
 @router.post(
@@ -71,6 +139,7 @@ async def ingest_datasets(
     session: AsyncSession = Depends(get_db),
     date_from: str | None = FastQuery(default=None, description="Start date filter (YYYY-MM-DD)"),
     date_to: str | None = FastQuery(default=None, description="End date filter (YYYY-MM-DD)"),
+    _user: CurrentUser = Depends(require_super_admin),
 ) -> dict:
     """
     Ingest CSV files from the datasets/ directory.
@@ -161,6 +230,7 @@ async def ingest_datasets(
 )
 async def run_full_pipeline(
     session: AsyncSession = Depends(get_db),
+    _user: CurrentUser = Depends(require_super_admin),
 ) -> dict:
     """
     Execute the full pipeline:
@@ -180,6 +250,7 @@ async def run_full_pipeline(
 )
 async def generate_anomalies(
     session: AsyncSession = Depends(get_db),
+    _user: CurrentUser = Depends(require_super_admin),
 ) -> dict:
     """
     Analyze token log data and generate anomaly records.

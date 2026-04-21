@@ -1,4 +1,4 @@
-version: "3.8"
+# LLM Dashboard — Production Docker Compose
 
 services:
 
@@ -11,9 +11,9 @@ services:
     image: timescale/timescaledb:latest-pg15
     container_name: llm_postgres
     environment:
-      POSTGRES_USER: llmuser
-      POSTGRES_PASSWORD: llmpassword
-      POSTGRES_DB: llmdashboard
+      POSTGRES_USER: ${POSTGRES_USER:-llmuser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-llmpassword}
+      POSTGRES_DB: ${POSTGRES_DB:-llmdashboard}
     ports:
       - "5432:5432"
     volumes:
@@ -24,6 +24,8 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
+    networks:
+      - llm-net
 
   # ================================================
   # Redis — in-memory data store
@@ -33,6 +35,7 @@ services:
   redis:
     image: redis:7-alpine
     container_name: llm_redis
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
     ports:
       - "6379:6379"
     volumes:
@@ -43,10 +46,121 @@ services:
       timeout: 5s
       retries: 5
     restart: unless-stopped
+    networks:
+      - llm-net
+
+  # ================================================
+  # LLM Dashboard API — FastAPI application
+  # The main API server serving all endpoints + frontend
+  # ================================================
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: llm_api
+    env_file: .env
+    environment:
+      # Override DB/Redis URLs to use Docker service names
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-llmuser}:${POSTGRES_PASSWORD:-llmpassword}@postgres:5432/${POSTGRES_DB:-llmdashboard}
+      REDIS_URL: redis://redis:6379/0
+      REDIS_CACHE_URL: redis://redis:6379/1
+      APP_ENV: ${APP_ENV:-production}
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - llm-net
+
+  # ================================================
+  # Celery Worker — background task processor
+  # Handles: data ingestion, anomaly detection,
+  # forecast generation, billing aggregation
+  # ================================================
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: llm_worker
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-llmuser}:${POSTGRES_PASSWORD:-llmpassword}@postgres:5432/${POSTGRES_DB:-llmdashboard}
+      REDIS_URL: redis://redis:6379/0
+      REDIS_CACHE_URL: redis://redis:6379/1
+    command: ["python", "-m", "celery", "-A", "celery_app", "worker",
+              "--loglevel=info", "--concurrency=2", "--pool=prefork"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - llm-net
+
+  # ================================================
+  # Celery Beat — periodic task scheduler
+  # Triggers: hourly aggregation, daily forecasts,
+  # anomaly detection sweeps
+  # ================================================
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: llm_scheduler
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-llmuser}:${POSTGRES_PASSWORD:-llmpassword}@postgres:5432/${POSTGRES_DB:-llmdashboard}
+      REDIS_URL: redis://redis:6379/0
+      REDIS_CACHE_URL: redis://redis:6379/1
+    command: ["python", "-m", "celery", "-A", "celery_app", "beat",
+              "--loglevel=info"]
+    depends_on:
+      - worker
+    restart: unless-stopped
+    networks:
+      - llm-net
+
+  # ================================================
+  # Nginx — reverse proxy + TLS termination
+  # Serves static files, proxies API requests
+  # ================================================
+  nginx:
+    image: nginx:alpine
+    container_name: llm_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+    depends_on:
+      - api
+    restart: unless-stopped
+    networks:
+      - llm-net
+    profiles:
+      - production   # Only starts with: docker compose --profile production up
 
 # ================================================
-# Volumes — persistent storage on your hard drive
-# Without this, data disappears when containers restart
+# Networks
+# ================================================
+networks:
+  llm-net:
+    driver: bridge
+
+# ================================================
+# Volumes — persistent storage
 # ================================================
 volumes:
   postgres_data:

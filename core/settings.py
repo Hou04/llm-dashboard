@@ -35,6 +35,26 @@ class Settings(BaseSettings):
     )
 
     # --------------------------------------------------------
+    # CONNECTION POOL TUNING
+    # --------------------------------------------------------
+    db_pool_size: int = Field(
+        default=10,
+        description="SQLAlchemy connection pool size (concurrent connections)"
+    )
+    db_max_overflow: int = Field(
+        default=20,
+        description="Max temporary connections above pool_size under load"
+    )
+    db_pool_recycle: int = Field(
+        default=1800,
+        description="Recycle connections after N seconds (prevents stale connections)"
+    )
+    redis_max_connections: int = Field(
+        default=50,
+        description="Max Redis connections per pool"
+    )
+
+    # --------------------------------------------------------
     # APPLICATION
     # --------------------------------------------------------
     app_env: str = Field(

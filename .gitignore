@@ -1,9 +1,36 @@
+# ── Environment & Secrets ──
 .env
+*.env.local
+
+# ── Python ──
 __pycache__/
 *.py[cod]
 *$py.class
 .pytest_cache/
+*.egg-info/
+dist/
+build/
+
+# ── IDE ──
 .vscode/
+.idea/
+*.swp
+*.swo
+
+# ── OS ──
 desktop.ini
+Thumbs.db
+.DS_Store
+
+# ── Generated files ──
 *.pdf
 *.log
+
+# ── TLS certificates ──
+nginx/certs/*.pem
+nginx/certs/*.key
+nginx/certs/*.crt
+!nginx/certs/README.md
+
+# ── Docker ──
+docker-compose.override.yml

@@ -283,13 +283,13 @@ class AnomalyGenerator:
                     INSERT INTO llm_anomaly
                         (id, tenant_id, agent_id, model,
                          anomaly_type, severity,
-                         observed_value, baseline_mean, baseline_std,
+                         observed_value, baseline_mean, baseline_std_dev,
                          vote_count, detector_votes,
                          description, detected_at, resolved)
                     VALUES
                         (:id, :tenant_id, :agent_id, :model,
                          :anomaly_type, :severity,
-                         :observed_value, :baseline_mean, :baseline_std,
+                         :observed_value, :baseline_mean, :baseline_std_dev,
                          :vote_count, :detector_votes,
                          :description, :detected_at, FALSE)
                     ON CONFLICT DO NOTHING
@@ -303,7 +303,7 @@ class AnomalyGenerator:
                     "severity": anom["severity"],
                     "observed_value": anom["observed_value"],
                     "baseline_mean": anom["baseline_mean"],
-                    "baseline_std": anom.get("baseline_std", 0),
+                    "baseline_std_dev": anom.get("baseline_std", 0),
                     "vote_count": 3 if anom["severity"] == "critical" else 2,
                     "detector_votes": "z_score,statistical",
                     "description": anom["description"],

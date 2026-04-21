@@ -68,13 +68,13 @@ class DatasetAdapter:
         ],
         "cost_usd": [
             "total_cost", "cost", "cost_usd", "amount",
-            "cost_total", "price", "charge",
+            "cost_total", "price", "charge", "total_cost_usd",
         ],
         "cost_input": [
-            "cost_input", "input_cost", "prompt_cost",
+            "cost_input", "input_cost", "prompt_cost", "input_cost_usd",
         ],
         "cost_output": [
-            "cost_output", "output_cost", "completion_cost",
+            "cost_output", "output_cost", "completion_cost", "output_cost_usd",
         ],
         "status": [
             "status", "call_status", "result", "outcome",

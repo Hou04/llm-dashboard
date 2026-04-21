@@ -105,17 +105,6 @@ async def handle_call_logged(event: dict) -> None:
         )
 
 
-def register_detection_handlers() -> None:
-    """
-    Register all detection event handlers.
-
-    Call this once at application startup, after the database
-    and event bus are initialized.
-    """
-    from core.event_bus import register_handler
-    register_handler("call.logged", handle_call_logged)
-    logger.info("Detection event handlers registered")
-
 async def handle_anomaly_detected(event: dict) -> None:
     """
     Handle an anomaly.detected event from the Detection service.

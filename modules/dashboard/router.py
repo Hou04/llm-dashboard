@@ -37,6 +37,8 @@ from datetime import datetime, timezone
 from modules.dashboard.services.assistant_service import AssistantService
 from modules.auth.dependencies import get_current_user, require_tenant_viewer
 from modules.auth.schemas import CurrentUser
+from core.sanitize import sanitize_text
+from core.response_cache import response_cache
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/v1/dashboard", tags=["Dashboard"])
@@ -83,7 +85,15 @@ async def executive_overview(
     service: DashboardService = Depends(get_dashboard_service),
     user: CurrentUser = Depends(require_tenant_viewer),
 ) -> ExecutiveOverviewResponse:
-    data = await service.get_executive_overview(period_days=period_days)
+    # Check cache first (60s TTL)
+    cache_key_params = dict(period=period_days)
+    cached = await response_cache.get("executive_overview", **cache_key_params)
+    if cached is not None:
+        data = cached
+    else:
+        data = await service.get_executive_overview(period_days=period_days)
+        # Cache the raw dict before tenant filtering (shared across users)
+        await response_cache.set("executive_overview", data, **cache_key_params)
 
     # Tenant-scoped users only see their own tenant's data
     if not user.is_super_admin():
@@ -144,7 +154,14 @@ async def tenant_detail(
     user: CurrentUser = Depends(require_tenant_viewer),
 ) -> TenantDetailResponse:
     user.require_tenant_access(tenant_id)
-    data = await service.get_tenant_detail(tenant_id, period_days)
+    # Check cache first (30s TTL)
+    cache_key_params = dict(tenant_id=tenant_id, period=period_days)
+    cached = await response_cache.get("tenant_detail", **cache_key_params)
+    if cached is not None:
+        data = cached
+    else:
+        data = await service.get_tenant_detail(tenant_id, period_days)
+        await response_cache.set("tenant_detail", data, **cache_key_params)
 
     cost_data = data["cost"]
     daily_trend = [DailyCostPoint(**d) for d in cost_data["daily_trend"]]
@@ -280,7 +297,7 @@ async def ask_assistant(
     - "How many calls were blocked by governance rules?"
     """
     return await service.ask(
-        question=question,
+        question=sanitize_text(question, max_length=500),
         tenant_id=tenant_id,
         user_id=user_id,
         period_days=period_days,

@@ -117,7 +117,7 @@ async def generate_all_invoices(
 ) -> dict:
     """
     Batch end-of-month processing.
-    Generates invoices for all 5 known tenants in one call.
+    Generates invoices for all active tenants in one call.
     """
     return await service.generate_all_for_month(
         year_month=year_month,
@@ -139,11 +139,11 @@ async def get_invoice(
     service: BillingService = Depends(get_billing_service),
     user: CurrentUser = Depends(require_tenant_viewer),
 ) -> dict:
-    user.require_tenant_access(tenant_id)
     """
     Retrieve a complete invoice including all line items and the
     client report for a given tenant and month.
     """
+    user.require_tenant_access(tenant_id)
     result = await service.get_invoice(tenant_id, year_month)
     if result is None:
         raise HTTPException(

@@ -15,6 +15,16 @@ API docs (auto-generated):
     http://localhost:8000/redoc     ← ReDoc
 """
 
+import asyncio
+import logging
+import sys
+
+# Configure standard streams to use UTF-8 on Windows to prevent UnicodeEncodeError
+# when structlog formats tracebacks containing non-ASCII characters.
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
+
 from contextlib import asynccontextmanager
 
 import structlog
@@ -27,6 +37,8 @@ import os
 from core.settings import settings
 from core.database import init_db
 from core.redis import init_redis
+from core.rate_limit import RateLimitMiddleware
+from core.security_headers import SecurityHeadersMiddleware
 from modules.gateway.router import router as gateway_router
 from modules.analytics.router import router as analytics_router
 from modules.billing.router import router as billing_router
@@ -40,7 +52,6 @@ from modules.auth.router import router as auth_router
 from modules.pipeline.router import router as pipeline_router
 from modules.pipeline.router import metrics_router
 
-from fastapi.staticfiles import StaticFiles
 
 from modules.auth.service import AuthService
 from core.database import async_session_factory
@@ -64,6 +75,20 @@ async def lifespan(app: FastAPI):
     """
     # STARTUP
     logger.info("app.starting")
+
+    # ── Security: reject default secret key in production ──
+    if settings.app_env == "production" and settings.secret_key in (
+        "CHANGE_ME_TO_A_RANDOM_64_CHAR_HEX_STRING",
+        "changeme",
+        "secret",
+        "",
+    ):
+        raise RuntimeError(
+            "FATAL: SECRET_KEY is set to a default/insecure value. "
+            "Generate a secure key: python -c \"import secrets; print(secrets.token_hex(32))\" "
+            "and set it in your .env file."
+        )
+
     await init_db()
     await init_redis()
 
@@ -122,6 +147,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Rate limiting — must be added BEFORE other middleware (outermost layer)
+app.add_middleware(RateLimitMiddleware)
+
+# Security headers — X-Content-Type-Options, X-Frame-Options, etc.
+app.add_middleware(SecurityHeadersMiddleware)
+
 # Request timing middleware — records duration/status for all API calls
 from core.observability import RequestTimingMiddleware
 app.add_middleware(RequestTimingMiddleware)
@@ -139,8 +170,43 @@ app.include_router(dashboard_router)
 app.include_router(billing_router)
 app.include_router(auth_router)
 app.include_router(pipeline_router)
-app.include_router(metrics_router)  # public /v1/metrics (no auth)
+app.include_router(metrics_router)   # public /v1/metrics + /v1/audit-log
 app.include_router(ws_router)
+
+
+# ============================================================
+# GLOBAL EXCEPTION HANDLER
+# ============================================================
+
+from fastapi import Request
+from fastapi.responses import JSONResponse
+from core.observability import metrics
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    """
+    Catch-all for unhandled exceptions.
+    Records the error in the central observability metrics and returns
+    a sanitized 500 response to prevent internal detail leakage.
+    """
+    logger.error(f"Unhandled exception on {request.method} {request.url.path}: {exc}", exc_info=True)
+    
+    # Record error in metrics
+    metrics.record_error(
+        source="unhandled_exception",
+        error=str(exc),
+        details={
+            "path": request.url.path,
+            "method": request.method,
+            "client_ip": request.client.host if request.client else None
+        }
+    )
+    
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal Server Error", "error_id": getattr(request.state, "trace_id", "unknown")}
+    )
+
 # ============================================================
 # ROOT ENDPOINT
 # ============================================================

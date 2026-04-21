@@ -11,6 +11,7 @@ Five endpoints:
 
 import logging
 from datetime import datetime, timezone, timedelta, date
+from decimal import Decimal
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status

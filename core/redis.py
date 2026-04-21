@@ -2,7 +2,7 @@ import json
 import structlog
 from datetime import date
 from typing import Optional, Any
-from redis.asyncio import Redis
+from redis.asyncio import Redis, ConnectionPool
 from redis.exceptions import RedisError
 
 from core.settings import settings
@@ -21,33 +21,53 @@ def get_redis_sync():
 
 
 # ============================================================
-# CLIENT FACTORIES
+# CONNECTION POOLS (shared across all requests)
 #
-# Each call creates a fresh Redis client.
-# In production, redis-py manages its own internal pool.
-# No module-level singletons means no event loop conflicts.
+# Each pool maintains a set of persistent TCP connections.
+# redis-py automatically borrows/returns connections per command.
+# This eliminates per-request connection overhead (~1ms → ~0.1ms).
 # ============================================================
+
+_quota_pool: Optional[ConnectionPool] = None
+_cache_pool: Optional[ConnectionPool] = None
+
+
+def _get_quota_pool() -> ConnectionPool:
+    global _quota_pool
+    if _quota_pool is None:
+        _quota_pool = ConnectionPool.from_url(
+            settings.redis_url,
+            decode_responses=True,
+            max_connections=settings.redis_max_connections,
+        )
+    return _quota_pool
+
+
+def _get_cache_pool() -> ConnectionPool:
+    global _cache_pool
+    if _cache_pool is None:
+        _cache_pool = ConnectionPool.from_url(
+            settings.redis_cache_url,
+            decode_responses=True,
+            max_connections=settings.redis_max_connections,
+        )
+    return _cache_pool
+
 
 def get_quota_redis() -> Redis:
     """
-    Returns a Redis client for quota operations (database 0).
-    Always call await redis.aclose() when done.
+    Returns a Redis client backed by a shared connection pool (database 0).
+    No need to call aclose() — connections are returned to the pool automatically.
     """
-    return Redis.from_url(
-        settings.redis_url,
-        decode_responses=True,
-    )
+    return Redis(connection_pool=_get_quota_pool())
 
 
 def get_cache_redis() -> Redis:
     """
-    Returns a Redis client for cache operations (database 1).
-    Always call await redis.aclose() when done.
+    Returns a Redis client backed by a shared connection pool (database 1).
+    No need to call aclose() — connections are returned to the pool automatically.
     """
-    return Redis.from_url(
-        settings.redis_cache_url,
-        decode_responses=True,
-    )
+    return Redis(connection_pool=_get_cache_pool())
 
 
 # ============================================================
@@ -254,25 +274,30 @@ async def init_redis() -> None:
     redis_quota = get_quota_redis()
     try:
         await redis_quota.ping()
-        log.info("redis.quota.connected", url=settings.redis_url)
+        log.info("redis.quota.connected", url=settings.redis_url,
+                 max_connections=settings.redis_max_connections)
     except RedisError as e:
         errors.append(f"Quota Redis: {e}")
-    finally:
-        await redis_quota.aclose()
 
     redis_cache = get_cache_redis()
     try:
         await redis_cache.ping()
-        log.info("redis.cache.connected", url=settings.redis_cache_url)
+        log.info("redis.cache.connected", url=settings.redis_cache_url,
+                 max_connections=settings.redis_max_connections)
     except RedisError as e:
         errors.append(f"Cache Redis: {e}")
-    finally:
-        await redis_cache.aclose()
 
     if errors:
         raise ConnectionError(f"Redis connection failed: {', '.join(errors)}")
 
 
 async def close_redis() -> None:
-    """No-op — no persistent pools to close in this design."""
-    log.info("redis.disconnected")
+    """Disconnect shared connection pools on shutdown."""
+    global _quota_pool, _cache_pool
+    if _quota_pool is not None:
+        await _quota_pool.disconnect()
+        _quota_pool = None
+    if _cache_pool is not None:
+        await _cache_pool.disconnect()
+        _cache_pool = None
+    log.info("redis.pools.disconnected")

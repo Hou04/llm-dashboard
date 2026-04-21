@@ -54,6 +54,9 @@ from modules.auth.dependencies import (
     require_tenant_viewer,
 )
 from modules.auth.schemas import CurrentUser
+from core.sanitize import sanitize_text, sanitize_identifier
+from core.audit import audit
+from core.database import get_db
 
 logger = logging.getLogger(__name__)
 
@@ -215,13 +218,13 @@ async def get_usage(
     service: GatewayService = Depends(get_gateway_service),
     user: CurrentUser = Depends(require_tenant_viewer),
 ) -> UsageSummaryResponse:
-    user.require_tenant_access(tenant_id)
     """
     Get usage summary for a tenant.
 
     Date range defaults to the last 30 days if not specified.
     Dates are interpreted as UTC calendar days (full day inclusive).
     """
+    user.require_tenant_access(tenant_id)
     # Apply defaults
     now = datetime.now(timezone.utc)
     resolved_to = to_date or now.date()
@@ -343,8 +346,25 @@ async def create_governance_rule(
     request: GovernanceRuleCreate,
     service: GovernanceService = Depends(get_governance_service),
     user: CurrentUser = Depends(require_tenant_admin),
+    session: AsyncSession = Depends(get_db),
 ) -> GovernanceRuleResponse:
-    rule = await service.create_rule(request.model_dump())
+    # Sanitize user-supplied text fields
+    data = request.model_dump()
+    if data.get("description"):
+        data["description"] = sanitize_text(data["description"], max_length=500)
+    if data.get("tenant_id"):
+        data["tenant_id"] = sanitize_identifier(data["tenant_id"])
+    if data.get("model_name"):
+        data["model_name"] = sanitize_identifier(data["model_name"])
+    rule = await service.create_rule(data)
+    # Audit log
+    await audit.log(
+        session=session, user=user, action="create",
+        resource_type="governance_rule",
+        resource_id=str(rule.get("id", "")),
+        description=f"Created governance rule: {data.get('rule_type', 'unknown')}",
+        details=data,
+    )
     return GovernanceRuleResponse.model_validate(rule)
 
 
@@ -357,6 +377,7 @@ async def create_governance_rule(
 async def get_governance_rule(
     rule_id: UUID,
     service: GovernanceService = Depends(get_governance_service),
+    _user: CurrentUser = Depends(require_tenant_viewer),
 ) -> GovernanceRuleResponse:
     rule = await service.get_rule(rule_id)
     if rule is None:
@@ -382,14 +403,30 @@ async def update_governance_rule(
     rule_id: UUID,
     request: GovernanceRuleUpdate,
     service: GovernanceService = Depends(get_governance_service),
+    _user: CurrentUser = Depends(require_tenant_admin),
 ) -> GovernanceRuleResponse:
     updates = {k: v for k, v in request.model_dump().items() if v is not None}
+    # Sanitize user-supplied text fields
+    if "description" in updates:
+        updates["description"] = sanitize_text(updates["description"], max_length=500)
+    if "tenant_id" in updates:
+        updates["tenant_id"] = sanitize_identifier(updates["tenant_id"])
+    if "model_name" in updates:
+        updates["model_name"] = sanitize_identifier(updates["model_name"])
     rule = await service.update_rule(rule_id, updates)
     if rule is None:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Governance rule {rule_id} not found.",
         )
+    # Audit log
+    await audit.log(
+        session=service.session, user=_user, action="update",
+        resource_type="governance_rule",
+        resource_id=str(rule_id),
+        description=f"Updated governance rule fields: {list(updates.keys())}",
+        details={"updates": updates},
+    )
     return GovernanceRuleResponse.model_validate(rule)
 
 
@@ -415,6 +452,13 @@ async def deactivate_governance_rule(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Governance rule {rule_id} not found.",
         )
+    # Audit log
+    await audit.log(
+        session=service.session, user=_user, action="deactivate",
+        resource_type="governance_rule",
+        resource_id=str(rule_id),
+        description=f"Deactivated governance rule {rule_id}",
+    )
     return GovernanceRuleResponse.model_validate(rule)
 
 

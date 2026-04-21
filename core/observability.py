@@ -144,6 +144,52 @@ class MetricsCollector:
             "collected_at": now.isoformat(),
         }
 
+    def prometheus_export(self) -> str:
+        """
+        Export metrics in Prometheus text exposition format.
+
+        This format is compatible with Prometheus, Grafana Agent,
+        and any monitoring tool that speaks the Prometheus protocol.
+        """
+        now = datetime.now(timezone.utc)
+        uptime = (now - _STARTUP_TIME).total_seconds()
+        lines = []
+
+        # App info
+        lines.append('# HELP llm_app_info Application version and metadata')
+        lines.append('# TYPE llm_app_info gauge')
+        lines.append(f'llm_app_info{{version="{_APP_VERSION}"}} 1')
+
+        # Uptime
+        lines.append('# HELP llm_uptime_seconds Application uptime in seconds')
+        lines.append('# TYPE llm_uptime_seconds gauge')
+        lines.append(f'llm_uptime_seconds {uptime:.1f}')
+
+        # Counters
+        for name, value in sorted(self._counters.items()):
+            prom_name = f"llm_{name.replace('.', '_').replace('-', '_')}"
+            lines.append(f'# TYPE {prom_name} counter')
+            lines.append(f'{prom_name} {value}')
+
+        # Gauges
+        for name, value in sorted(self._gauges.items()):
+            prom_name = f"llm_{name.replace('.', '_').replace('-', '_')}"
+            lines.append(f'# TYPE {prom_name} gauge')
+            lines.append(f'{prom_name} {value}')
+
+        # Timing summaries
+        for name, values in sorted(self._timings.items()):
+            if values:
+                prom_name = f"llm_{name.replace('.', '_').replace('-', '_')}_ms"
+                avg_val = sum(values) / len(values)
+                lines.append(f'# TYPE {prom_name} summary')
+                lines.append(f'{prom_name}_count {len(values)}')
+                lines.append(f'{prom_name}_avg {avg_val:.2f}')
+                lines.append(f'{prom_name}_max {max(values):.2f}')
+
+        lines.append('')  # Trailing newline
+        return '\n'.join(lines)
+
     def reset(self) -> None:
         """Reset all metrics (for testing)."""
         self._counters.clear()

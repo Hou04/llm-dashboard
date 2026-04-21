@@ -1,0 +1,172 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+env:
+  PYTHON_VERSION: "3.13"
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+
+  # ════════════════════════════════════════════════════════════
+  # Stage 1: Lint & Type Check
+  # ════════════════════════════════════════════════════════════
+  lint:
+    name: Lint & Syntax Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          pip install pipenv
+          pipenv install --dev --deploy
+
+      - name: Check Python syntax
+        run: |
+          pipenv run python -m py_compile main.py
+          pipenv run python -m py_compile celery_app.py
+          find core modules -name "*.py" -exec pipenv run python -m py_compile {} +
+
+      - name: Check imports
+        run: |
+          pipenv run python -c "from main import app; print('App imports OK')"
+
+  # ════════════════════════════════════════════════════════════
+  # Stage 2: Unit & Integration Tests
+  # ════════════════════════════════════════════════════════════
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    needs: lint
+    services:
+      postgres:
+        image: timescale/timescaledb:latest-pg15
+        env:
+          POSTGRES_USER: llmuser
+          POSTGRES_PASSWORD: llmpassword
+          POSTGRES_DB: llmdashboard_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U llmuser -d llmdashboard_test"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    env:
+      DATABASE_URL: postgresql+asyncpg://llmuser:llmpassword@localhost:5432/llmdashboard_test
+      REDIS_URL: redis://localhost:6379/0
+      REDIS_CACHE_URL: redis://localhost:6379/1
+      SECRET_KEY: test-secret-key-for-ci-only-not-production
+      APP_ENV: testing
+      LOG_LEVEL: WARNING
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install dependencies
+        run: |
+          pip install pipenv
+          pipenv install --dev --deploy
+
+      - name: Run database migrations
+        run: |
+          pipenv run alembic upgrade head
+
+      - name: Run tests
+        run: |
+          pipenv run pytest tests/ -v --tb=short -x -q 2>&1 | head -200
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            .pytest_cache/
+            *.log
+
+  # ════════════════════════════════════════════════════════════
+  # Stage 3: Build & Push Docker Image
+  # ════════════════════════════════════════════════════════════
+  build:
+    name: Build Docker Image
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=sha,prefix=
+            type=raw,value=latest
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+
+  # ════════════════════════════════════════════════════════════
+  # Stage 4: Deploy (manual trigger for production)
+  # ════════════════════════════════════════════════════════════
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment: production
+
+    steps:
+      - name: Deploy notification
+        run: |
+          echo "🚀 Image built and pushed to GHCR"
+          echo "   Image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
+          echo ""
+          echo "To deploy on your VPS, run:"
+          echo "   docker compose pull api worker scheduler"
+          echo "   docker compose up -d"

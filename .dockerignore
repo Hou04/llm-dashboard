@@ -1,0 +1,52 @@
+# ============================================================
+# Docker build exclusions
+# Keep the build context small and fast
+# ============================================================
+
+# Version control
+.git
+.gitignore
+
+# Python caches
+__pycache__
+*.py[cod]
+*$py.class
+.pytest_cache
+*.egg-info
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Environment & secrets
+.env
+*.env.local
+
+# OS files
+desktop.ini
+Thumbs.db
+.DS_Store
+
+# Generated files
+*.pdf
+*.log
+*.xlsx
+report/
+openapi_paths.json
+
+# Documentation (not needed in container)
+System_Architecture_Report.md
+enonce.tex
+README.md
+docs/
+
+# Test files (not needed in production image)
+tests/
+
+# Docker files (prevent recursive build context)
+Dockerfile
+docker-compose*.yml
+.dockerignore
+nginx/
