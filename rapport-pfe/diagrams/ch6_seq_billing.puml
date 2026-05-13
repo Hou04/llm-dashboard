@@ -1,0 +1,93 @@
+@startuml ch6_seq_billing
+' ============================================================
+' CHAPITRE 6 — Diagramme de Séquence — Génération de Facture
+' Figure 6.x : Processus de génération automatique de facture
+' ============================================================
+
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+skinparam roundcorner 5
+skinparam sequenceArrowThickness 2
+
+skinparam participant {
+  BackgroundColor #C0392B
+  FontColor #FFFFFF
+  BorderColor #922B21
+}
+
+title <size:16><b>Diagramme de Séquence — Génération de Facture Mensuelle</b></size>
+
+participant "Celery Beat\n(Scheduler)" as CB #8E44AD
+participant "Billing\nService" as BS #C0392B
+participant "Contract\nRepository" as CR #E74C3C
+participant "Cost\nRepository" as CO #E67E22
+participant "Invoice\nRepository" as IR #3498DB
+database "PostgreSQL\n(billing)" as DB #27AE60
+
+CB -> BS : generate_monthly_invoices()\n[1er du mois, 03h00]
+activate BS
+
+BS -> CR : get_all_active_contracts()
+activate CR
+CR -> DB : SELECT * FROM billing_contract\nWHERE status = 'ACTIVE'
+activate DB
+DB --> CR : List<BillingContract>
+deactivate DB
+CR --> BS : contracts[]
+deactivate CR
+
+loop Pour chaque contrat actif
+
+  BS -> CO : get_monthly_costs(\ntenant_id, month, year)
+  activate CO
+  CO -> DB : SELECT provider, model,\nSUM(total_tokens),\nSUM(total_cost),\nCOUNT(*)\nFROM llm_cost_monthly\nWHERE tenant_id = ?\nAND month = ? AND year = ?
+  activate DB
+  DB --> CO : List<MonthlyCost>
+  deactivate DB
+  CO --> BS : monthly_costs[]
+  deactivate CO
+
+  == Calcul selon le type de contrat ==
+
+  alt pay_as_you_go
+    BS -> BS : total = Σ(monthly_costs.total_cost)
+  else flat_rate
+    BS -> BS : total = contract.base_fee
+  else hybrid
+    BS -> BS : usage = Σ(monthly_costs.total_cost)
+    BS -> BS : if usage > contract.included_amount
+    BS -> BS :   overage = (usage - included)\n                    × overage_rate
+    BS -> BS :   total = base_fee + overage
+    BS -> BS : else total = base_fee
+  end
+
+  BS -> BS : discount = total × (discount_pct / 100)
+  BS -> BS : final_total = total - discount
+
+  == Création de la facture ==
+
+  BS -> IR : create_invoice(\ntenant_id, contract_id,\nperiod, total, line_items)
+  activate IR
+
+  IR -> DB : INSERT INTO invoice\n(tenant_id, contract_id,\ninvoice_number, subtotal,\ndiscount, total, status='DRAFT')
+  activate DB
+  DB --> IR : invoice_id
+  deactivate DB
+
+  loop Pour chaque modèle LLM utilisé
+    IR -> DB : INSERT INTO\ninvoice_line_item\n(invoice_id, provider, model,\ntokens, unit_price, total)
+    activate DB
+    DB --> IR : line_item_id
+    deactivate DB
+  end
+
+  IR --> BS : Invoice (complète)
+  deactivate IR
+
+end
+
+BS --> CB : {invoices_generated: N,\ntotal_amount: $X}
+deactivate BS
+
+@enduml

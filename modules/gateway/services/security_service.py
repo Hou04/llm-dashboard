@@ -38,7 +38,7 @@ class SecurityService:
             # We use a fast, CPU-bound DistilBERT model for prompt injection
             self.classifier = pipeline(
                 "text-classification", 
-                model="ProtectAI/distilbert-base-prompt-injection",
+                model="protectai/deberta-v3-base-prompt-injection-v2",
                 device=-1 # CPU
             )
         except Exception as e:

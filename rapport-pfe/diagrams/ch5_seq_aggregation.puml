@@ -1,0 +1,101 @@
+@startuml ch5_seq_aggregation
+' ============================================================
+' CHAPITRE 5 — Diagramme de Séquence — Agrégation des Coûts
+' Figure 5.x : Pipeline nocturne d'agrégation Celery
+' ============================================================
+
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+skinparam roundcorner 5
+skinparam sequenceArrowThickness 2
+
+skinparam sequence {
+  ParticipantBackgroundColor #2C3E50
+  ParticipantFontColor #FFFFFF
+  ParticipantBorderColor #1A252F
+  LifeLineBackgroundColor #E8E8E8
+  ArrowColor #2C3E50
+}
+
+title <size:16><b>Diagramme de Séquence — Pipeline d'Agrégation Nocturne</b></size>
+
+participant "Celery Beat\nScheduler" as Beat
+participant "Celery Worker" as Worker
+participant "AnalyticsService" as AS
+database "PostgreSQL\nllm_token_log" as LogDB
+database "PostgreSQL\nllm_cost_daily" as DailyDB
+database "PostgreSQL\nllm_cost_monthly" as MonthlyDB
+participant "DetectionService" as DS
+participant "Event Bus" as Bus
+
+== Agrégation quotidienne (chaque nuit à 2h00) ==
+
+Beat -> Worker : crontab(hour=2, minute=0)\naggregate_daily_costs
+activate Worker
+
+Worker -> AS : aggregate_daily(date=yesterday)
+activate AS
+
+AS -> LogDB : SELECT tenant_id, provider, model,\nSUM(input_tokens), SUM(output_tokens),\nSUM(cost_usd), COUNT(*), AVG(latency_ms)\nFROM llm_token_log\nWHERE DATE(timestamp) = yesterday\nGROUP BY tenant_id, provider, model
+activate LogDB
+LogDB --> AS : aggregated_rows[]
+deactivate LogDB
+
+loop pour chaque groupe (tenant × provider × model)
+  AS -> DailyDB : INSERT INTO llm_cost_daily\n(tenant_id, date, provider, model,\ntotal_tokens, total_cost, request_count)
+  activate DailyDB
+  DailyDB --> AS : OK
+  deactivate DailyDB
+end
+
+AS -> DS : trigger_detection(date=yesterday)
+activate DS
+note right of DS
+  La détection d'anomalies
+  s'exécute sur les données
+  fraîchement agrégées
+end note
+DS --> AS : anomalies_detected: N
+deactivate DS
+
+AS -> Bus : publish("daily.aggregation.completed",\n{date, tenants_processed})
+
+AS --> Worker : DailyAggregationResult
+deactivate AS
+deactivate Worker
+
+== Rollup mensuel (chaque 1er du mois à 3h00) ==
+
+Beat -> Worker : crontab(day_of_month=1, hour=3)\nrollup_monthly_costs
+activate Worker
+
+Worker -> AS : rollup_monthly(month=last_month, year)
+activate AS
+
+AS -> DailyDB : SELECT tenant_id, provider, model,\nSUM(total_tokens), SUM(total_cost),\nSUM(request_count)\nFROM llm_cost_daily\nWHERE EXTRACT(MONTH FROM date) = last_month\nGROUP BY tenant_id, provider, model
+activate DailyDB
+DailyDB --> AS : monthly_aggregated[]
+deactivate DailyDB
+
+loop pour chaque groupe
+  AS -> MonthlyDB : UPSERT INTO llm_cost_monthly
+  activate MonthlyDB
+  MonthlyDB --> AS : OK
+  deactivate MonthlyDB
+end
+
+AS -> Bus : publish("monthly.rollup.completed",\n{month, year, tenants})
+
+note right of Bus
+  Le module Billing écoute
+  cet événement pour
+  déclencher la génération
+  automatique des factures
+end note
+
+AS --> Worker : MonthlyRollupResult
+deactivate AS
+deactivate Worker
+
+@enduml

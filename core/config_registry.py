@@ -84,9 +84,36 @@ class ConfigRegistry:
             "dashboard.default_period_days": 30,
 
             # ── Gateway ──
-            "gateway.mode": "simulation",
+            "gateway.mode": "production",
             "gateway.rule_cache_ttl": 300,
             "gateway.security_enabled": True,
+
+            # ── Optimizer (M5) ──
+            "optimizer.downgrade_map": {
+                "gpt-4o": "gpt-4o-mini",
+                "claude-3-sonnet": "claude-3-haiku",
+                "claude-3-opus": "claude-3-haiku",
+            },
+            "optimizer.upgrade_map": {
+                "gpt-4o-mini": "gpt-4o",
+                "claude-3-haiku": "claude-3-sonnet",
+            },
+            "optimizer.downgrade_max_input_tokens": 400,
+            "optimizer.downgrade_max_output_tokens": 500,
+            "optimizer.downgrade_max_error_rate": 5.0,
+            "optimizer.upgrade_min_input_tokens": 1500,
+            "optimizer.upgrade_min_output_tokens": 1200,
+            "optimizer.upgrade_min_error_rate": 10.0,
+            "optimizer.min_saving_threshold_usd": 0.50,
+            "optimizer.verbose_input_threshold": 800,
+            "optimizer.missing_format_threshold": 600,
+            "optimizer.model_pricing": {
+                "gpt-4o":           {"input": 0.0025,  "output": 0.010},
+                "gpt-4o-mini":      {"input": 0.00015, "output": 0.0006},
+                "claude-3-haiku":   {"input": 0.00025, "output": 0.00125},
+                "claude-3-sonnet":  {"input": 0.003,   "output": 0.015},
+                "claude-3-opus":    {"input": 0.015,   "output": 0.075},
+            },
 
             # ── Observability ──
             "observability.log_level": "INFO",

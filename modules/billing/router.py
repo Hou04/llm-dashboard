@@ -52,7 +52,7 @@ from modules.billing.services.billing_service import BillingService
 from modules.billing.services.pdf_service import InvoicePDFService
 from modules.billing.services.credit_service import CreditAdjustmentService
 from modules.billing.services.webhook_service import BillingWebhookService
-from modules.billing.schemas import ApplyCreditRequest
+from modules.billing.schemas import ApplyCreditRequest, ContractUpdateReq, ContractResponse
 from modules.auth.dependencies import require_tenant_viewer, require_super_admin
 from modules.auth.schemas import CurrentUser
 
@@ -92,8 +92,8 @@ async def generate_invoice(
 
     year_month format: YYYYMM (e.g. 202603 for March 2026)
 
-    Requires M2 data to exist in llm_cost_monthly for this period.
-    Run scripts/backfill_costs.py first if needed.
+    Usage data is computed dynamically from llm_token_log.
+    No pre-aggregation or backfill scripts needed.
     """
     result = await service.generate_monthly_invoice(
         tenant_id=tenant_id,
@@ -478,3 +478,109 @@ async def get_webhook_config(
             detail=f"No webhook configuration found for {tenant_id}.",
         )
     return config
+
+
+# ============================================================
+# CONTRACT MANAGEMENT
+# ============================================================
+
+@router.get(
+    "/contract/{tenant_id}",
+    summary="M10 — Get billing contract for a tenant",
+    response_model=ContractResponse,
+)
+async def get_contract(
+    tenant_id: str,
+    service: BillingService = Depends(get_billing_service),
+    user: CurrentUser = Depends(require_tenant_viewer),
+):
+    user.require_tenant_access(tenant_id)
+    from modules.billing.repositories.contract_repository import ContractRepository
+    repo = ContractRepository(service.session)
+    contract = await repo.get_contract(tenant_id)
+    if not contract:
+        raise HTTPException(status_code=404, detail="No contract found for this tenant")
+    return contract
+
+
+@router.post(
+    "/contract/{tenant_id}",
+    summary="M10 — Update billing contract for a tenant",
+    response_model=ContractResponse,
+)
+async def update_contract(
+    tenant_id: str,
+    payload: ContractUpdateReq,
+    service: BillingService = Depends(get_billing_service),
+    _user: CurrentUser = Depends(require_super_admin),
+):
+    from modules.billing.repositories.contract_repository import ContractRepository
+    repo = ContractRepository(service.session)
+    contract = await repo.upsert(
+        tenant_id=tenant_id,
+        contract_type=payload.contract_type,
+        status=payload.status,
+        base_fee_usd=payload.base_fee_usd,
+        forfait_tokens=payload.forfait_tokens,
+        overage_rate_per_1k=payload.overage_rate_per_1k,
+        description=payload.description
+    )
+    await service.session.commit()
+    return contract
+
+
+@router.post(
+    "/contract/{tenant_id}/accept",
+    summary="M10 — Accept a proposed billing contract",
+    response_model=ContractResponse,
+)
+async def accept_contract(
+    tenant_id: str,
+    service: BillingService = Depends(get_billing_service),
+    user: CurrentUser = Depends(require_tenant_viewer),
+):
+    """
+    Tenant Admin accepts a proposed contract.
+    Changes status from 'proposed' to 'active'.
+    """
+    user.require_tenant_access(tenant_id)
+    from modules.billing.repositories.contract_repository import ContractRepository
+    repo = ContractRepository(service.session)
+    
+    contract = await repo.get_contract(tenant_id)
+    if not contract:
+        raise HTTPException(status_code=404, detail="No contract found for this tenant")
+    
+    if contract.status != "proposed":
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Only 'proposed' contracts can be accepted. Current status: {contract.status}"
+        )
+        
+    contract = await repo.accept_contract(tenant_id)
+    await service.session.commit()
+    return contract
+
+
+@router.post(
+    "/contract/{tenant_id}/reject",
+    summary="M10 — Reject a proposed billing contract",
+    response_model=ContractResponse,
+)
+async def reject_contract(
+    tenant_id: str,
+    service: BillingService = Depends(get_billing_service),
+    user: CurrentUser = Depends(require_tenant_viewer),
+):
+    """Tenant Admin rejects a proposed contract."""
+    user.require_tenant_access(tenant_id)
+    from modules.billing.repositories.contract_repository import ContractRepository
+    repo = ContractRepository(service.session)
+    
+    contract = await repo.get_contract(tenant_id)
+    if not contract:
+        raise HTTPException(status_code=404, detail="No contract found for this tenant")
+        
+    contract = await repo.reject_contract(tenant_id)
+    await service.session.commit()
+    return contract

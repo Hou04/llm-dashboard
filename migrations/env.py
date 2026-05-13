@@ -25,9 +25,11 @@ from modules.detection.models_explainer import LLMTokenExplanation, LLMTokenReco
 from modules.forecasting.models_optimizer import LLMPromptOptimization, LLMModelRecommendation
 from modules.billing.models import LLMBillingMonthly, LLMBillingLineItem, LLMClientReport
 from modules.billing.contract_models import LLMTenantContract, LLMModelPricing
-from modules.billing.contract_models import LLMTenantContract, LLMModelPricing
-from modules.auth.models import LLMAuthUser, LLMApiKey
-from modules.tenants.models import LLMTenant
+from modules.tracing.models import LLMExperiment, LLMSession, LLMAlertConfig, LLMAlertHistory
+from modules.prompts.models import LLMPromptTemplate
+from modules.auth.models import LLMAuthUser, LLMApiKey, LLMVirtualKey
+from modules.tenants.models import LLMTenant, LLMTenantCredential
+from core.audit_model import LLMAuditLog
 # This is the Alembic Config object
 config = context.config
 

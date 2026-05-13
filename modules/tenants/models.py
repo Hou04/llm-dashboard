@@ -25,3 +25,24 @@ class LLMTenant(Base):
         onupdate=func.now(),
         nullable=False,
     )
+
+
+class LLMTenantCredential(Base):
+    """
+    Key Vault for Tenant LLM API Keys.
+    Stores encrypted provider keys (OpenAI, Anthropic, etc) per tenant.
+    """
+    __tablename__ = "llm_tenant_credentials"
+
+    id = Column(String, primary_key=True)
+    tenant_id = Column(String, nullable=False, index=True)
+    provider = Column(String, nullable=False) # e.g. "openai", "anthropic"
+    encrypted_key = Column(String, nullable=False)
+    
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )

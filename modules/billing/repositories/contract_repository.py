@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 # Default contract applied to tenants without an explicit contract
 _DEFAULT_CONTRACT = {
     "contract_type": "pay_as_you_go",
+    "status": "active",
     "base_fee_usd": Decimal("0"),
     "forfait_tokens": 0,
     "overage_rate_per_1k": Decimal("0"),
@@ -79,6 +80,7 @@ class ContractRepository:
         self,
         tenant_id: str,
         contract_type: str = "pay_as_you_go",
+        status: str = "active",
         base_fee_usd: float = 0.0,
         forfait_tokens: int = 0,
         overage_rate_per_1k: float = 0.0,
@@ -89,6 +91,7 @@ class ContractRepository:
         existing = await self.get_contract(tenant_id)
         if existing:
             existing.contract_type = contract_type
+            existing.status = status
             existing.base_fee_usd = Decimal(str(base_fee_usd))
             existing.forfait_tokens = forfait_tokens
             existing.overage_rate_per_1k = Decimal(str(overage_rate_per_1k))
@@ -101,6 +104,7 @@ class ContractRepository:
         contract = LLMTenantContract(
             tenant_id=tenant_id,
             contract_type=contract_type,
+            status=status,
             base_fee_usd=Decimal(str(base_fee_usd)),
             forfait_tokens=forfait_tokens,
             overage_rate_per_1k=Decimal(str(overage_rate_per_1k)),
@@ -156,3 +160,29 @@ class ContractRepository:
                 overage_rate_per_1k=config.get("billing.tier.enterprise_overage_rate", 0.003),
                 description="Auto-assigned: enterprise usage tier",
             )
+
+    async def update_status(self, tenant_id: str, status: str) -> Optional[LLMTenantContract]:
+        """Update the status of a contract."""
+        contract = await self.get_contract(tenant_id)
+        if contract:
+            contract.status = status
+            await self.session.flush()
+        return contract
+
+    async def accept_contract(self, tenant_id: str) -> Optional[LLMTenantContract]:
+        """Transition contract status from 'proposed' to 'active'."""
+        contract = await self.get_contract(tenant_id)
+        if contract and contract.status == "proposed":
+            contract.status = "active"
+            await self.session.flush()
+            logger.info(f"contract.accepted tenant={tenant_id}")
+        return contract
+
+    async def reject_contract(self, tenant_id: str) -> Optional[LLMTenantContract]:
+        """Transition contract status to 'rejected'."""
+        contract = await self.get_contract(tenant_id)
+        if contract:
+            contract.status = "rejected"
+            await self.session.flush()
+            logger.info(f"contract.rejected tenant={tenant_id}")
+        return contract

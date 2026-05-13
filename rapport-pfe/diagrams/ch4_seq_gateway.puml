@@ -1,0 +1,105 @@
+@startuml ch4_seq_gateway
+' ============================================================
+' CHAPITRE 4 — Diagramme de Séquence — Gateway LLM
+' Figure 4.x : Flux d'un appel LLM à travers le Gateway
+' ============================================================
+
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+skinparam roundcorner 5
+skinparam sequenceArrowThickness 2
+
+skinparam participant {
+  BackgroundColor #3498DB
+  FontColor #FFFFFF
+  BorderColor #2980B9
+}
+
+skinparam database {
+  BackgroundColor #27AE60
+  FontColor #FFFFFF
+  BorderColor #1E8449
+}
+
+title <size:16><b>Diagramme de Séquence — Appel LLM via le Gateway</b></size>
+
+actor "Agent Applicatif\n(QALITAS / GMAO PRO)" as AG #F39C12
+participant "Gateway\nRouter" as GR #3498DB
+participant "Governance\nEngine" as GOV #E74C3C
+participant "Semantic\nCache" as CACHE #9B59B6
+participant "LLM Provider\n(OpenAI/Anthropic/...)" as LLM #1ABC9C
+database "TimescaleDB\n(llm_token_log)" as DB #27AE60
+database "Redis\n(Compteurs)" as RED #E67E22
+participant "Event Bus" as EB #8E44AD
+
+AG -> GR : POST /v1/gateway/chat/completions\n{model, messages[], tenant_id}
+activate GR
+
+== 1. Évaluation des règles de gouvernance ==
+
+GR -> GOV : evaluate_rules(request, tenant_id)
+activate GOV
+
+GOV -> RED : get_rate_counter(tenant_id)
+activate RED
+RED --> GOV : current_count = 42
+deactivate RED
+
+GOV -> GOV : Évaluer 5 types de règles :\n• rate_limit (RPM)\n• budget_cap ($)\n• model_restriction\n• token_limit\n• time_restriction
+
+alt Règle bloquante
+  GOV --> GR : Decision(action=BLOCK,\nreason="Budget dépassé")
+  GR --> AG : 429 Too Many Requests\n{error: "Governance rule violated"}
+else Toutes les règles passent
+  GOV --> GR : Decision(action=ALLOW)
+  deactivate GOV
+end
+
+== 2. Vérification du cache sémantique ==
+
+GR -> CACHE : semantic_lookup(prompt, tenant_id)
+activate CACHE
+CACHE -> RED : cosine_similarity(embedding)
+
+alt Cache HIT (similarité > 0.95)
+  CACHE --> GR : CachedResponse
+  GR -> DB : log_entry(status="cached",\ncost=0, latency_ms=5)
+  GR --> AG : 200 OK (from cache)
+else Cache MISS
+  CACHE --> GR : null
+  deactivate CACHE
+end
+
+== 3. Appel au fournisseur LLM ==
+
+GR -> LLM : POST /v1/chat/completions\n{model, messages}
+activate LLM
+LLM --> GR : LLMResponse\n{content, usage:\n{input_tokens, output_tokens}}
+deactivate LLM
+
+== 4. Calcul du coût et journalisation ==
+
+GR -> GR : calculate_cost()\ntokens × pricing_per_model
+
+GR -> DB : INSERT INTO llm_token_log\n(tenant_id, provider, model,\ninput_tokens, output_tokens,\ncost_usd, latency_ms, status)
+activate DB
+DB --> GR : OK
+deactivate DB
+
+== 5. Mise à jour des compteurs ==
+
+GR -> RED : incr_rate_counter(tenant_id)
+GR -> RED : incr_budget_used(tenant_id, cost)
+
+== 6. Publication de l'événement ==
+
+GR -> EB : publish("llm.call.completed",\n{tenant_id, model, tokens, cost})
+activate EB
+EB --> GR : OK
+deactivate EB
+
+GR --> AG : 200 OK\n{response, usage, cost}
+deactivate GR
+
+@enduml

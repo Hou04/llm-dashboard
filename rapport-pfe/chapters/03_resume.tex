@@ -1,0 +1,20 @@
+% ============================================================
+% RÉSUMÉ
+% ============================================================
+
+\chapter*{Résumé}
+\addcontentsline{toc}{chapter}{Résumé}
+
+\vspace{0.5cm}
+
+Le présent projet de fin d'études, réalisé au sein de l'entreprise \textbf{TIM Tunisie}, porte sur la conception et le développement d'une \textbf{plateforme SaaS de gouvernance et de monitoring des modèles de langage de grande taille (LLM)}. Face à l'intégration croissante de l'intelligence artificielle dans les produits industriels de l'entreprise --- notamment les systèmes QALITAS et GMAO PRO --- le besoin d'un outil centralisé de supervision, de maîtrise des coûts et de traçabilité s'est imposé comme une nécessité stratégique.
+
+La solution développée, baptisée \textbf{LLM Dashboard}, se positionne comme un proxy intelligent entre les applications clientes et les fournisseurs de LLM (OpenAI, Anthropic, Google, Groq, Cohere). Elle intègre \textbf{onze modules fonctionnels} couvrant l'ensemble du cycle de vie des interactions LLM~: authentification et contrôle d'accès (RBAC), Gateway proxy avec gouvernance temps réel, détection d'anomalies par apprentissage automatique (STL, Isolation Forest, CUSUM), explication automatique des anomalies par IA, prévision budgétaire à trois scénarios, optimisation des coûts, analytics et agrégation, facturation contractuelle, traçage des sessions, gestion des prompts et tableau de bord exécutif interactif.
+
+L'architecture technique repose sur une stack moderne~: FastAPI (Python~3.13), Next.js~16 (React~19), PostgreSQL avec TimescaleDB et pgvector, Redis~7, Celery~5 et Docker. Le développement a été conduit selon la méthodologie Scrum, structuré en trois sprints, et validé par 180~tests unitaires et d'intégration.
+
+\vspace{0.5cm}
+
+\textbf{Mots clés~:} LLM, Gouvernance, Monitoring, Multi-tenant, SaaS, Détection d'anomalies, Apprentissage automatique, FastAPI, TimescaleDB, Scrum.
+
+\newpage

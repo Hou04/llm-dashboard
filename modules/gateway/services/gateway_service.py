@@ -86,6 +86,13 @@ class CallRequest:
     request_id: Optional[str] = None
     error_message: Optional[str] = None
     metadata: Optional[dict] = field(default=None)
+    prompt_text: Optional[str] = field(default=None)
+    completion_text: Optional[str] = field(default=None)
+    session_id: Optional[str] = field(default=None)
+    prompt_name: Optional[str] = field(default=None)  # Added for A/B testing
+    prompt_version: Optional[int] = field(default=None) # Added for A/B testing
+    experiment_id: Optional[str] = field(default=None) # Added for A/B testing
+    variant: Optional[str] = field(default=None)       # Added for A/B testing
 
 
 @dataclass
@@ -233,10 +240,15 @@ class GatewayService:
             result = await service.log_call(request)
     """
 
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(self, session: AsyncSession):
         self.session = session
         self.log_repo = LogRepository(session)
         self.rule_repo = RuleRepository(session)
+        
+        # New: Experiment support
+        from modules.tracing.repositories.experiment_repository import ExperimentRepository
+        self.experiment_repo = ExperimentRepository(session)
+        
         self._security = None  # Lazy-loaded singleton
 
     @property
@@ -284,11 +296,17 @@ class GatewayService:
             # Step 0b: Generate trace_id for end-to-end correlation
             trace_id = generate_trace_id(request.tenant_id, request.request_id)
 
-            # Step 1: Evaluate governance
+            # Step 0c: Semantic cache check (Feature 1)
+            cache_hit = await self._check_semantic_cache(request)
+            if cache_hit is not None:
+                return cache_hit
+
+            # Step 1: Evaluate governance & Experiments
             governance = await self.evaluate_governance(
                 tenant_id=request.tenant_id,
                 model=request.model,
                 tokens_requested=request.total_tokens,
+                prompt_name=request.prompt_name
             )
 
             # Step 2: Handle blocked calls
@@ -338,7 +356,16 @@ class GatewayService:
                 "duration_ms": request.duration_ms,
                 "status": request.status,
                 "error_message": request.error_message,
-                "metadata_": request.metadata,
+                "prompt_text": request.prompt_text,
+                "completion_text": request.completion_text,
+                "metadata_": {
+                    **(request.metadata or {}),
+                    "experiment_id": request.experiment_id,
+                    "variant": request.variant,
+                    "prompt_name": request.prompt_name,
+                    "prompt_version": request.prompt_version,
+                    "session_id": request.session_id
+                },
                 "created_at": now_dt.isoformat(),
             }
             
@@ -356,18 +383,22 @@ class GatewayService:
 
             # Step 5 & 6: Offload DB Insert Payload to Celery (Async Queue)
             # This completely removes PostgreSQL latency from the Gateway fast path
-            from modules.gateway.tasks import persist_log_async
-            persist_log_async.delay(log_data, decision_data)
+            # Direct DB Insert (Bypassing Celery for Demo stability)
+            from modules.gateway.tasks import _persist_log_async
+            await _persist_log_async(log_data, decision_data)
 
             # Step 7: Update Redis usage counters (after commit — best effort)
             await self._update_usage_counters(request)
 
             from collections import namedtuple
-            LogMock = namedtuple('LogMock', ['id', 'model', 'provider', 'created_at'])
-            saved_log = LogMock(log_id_val, model_used, request.provider, now_dt)
+            LogRecord = namedtuple('LogRecord', ['id', 'model', 'provider', 'created_at'])
+            saved_log = LogRecord(log_id_val, model_used, request.provider, now_dt)
 
             # Step 8: Publish success event
             await self._publish_call_logged_event(request, saved_log, governance)
+
+            # Step 9: Store in semantic cache for future dedup (best-effort)
+            await self._store_semantic_cache(request)
 
             return CallResult(
                 success=True,
@@ -399,32 +430,26 @@ class GatewayService:
         tenant_id: str,
         model: str,
         tokens_requested: int,
+        prompt_name: Optional[str] = None,
     ) -> GovernanceResult:
         """
-        Evaluate governance rules for a proposed API call.
-
-        Rule evaluation order:
-        1. Load rules from Redis cache (fast)
-        2. On cache miss: load from database, populate cache
-        3. Apply rules by priority (highest first)
-        4. First matching rule wins
-        5. If no rules match: default ALLOW
-
-        A rule "matches" based on its type:
-        - MODEL_BLOCK: blocks if model matches (or rule applies to all models)
-        - TENANT_LIMIT: blocks if daily token usage would exceed limit
-        - BUDGET_CAP: blocks if monthly cost would exceed budget
-        - RATE_LIMIT: blocks if tokens_requested exceeds per-request max
-        - MODEL_DOWNGRADE: substitutes the requested model with another
-
-        Args:
-            tenant_id: The tenant making the call.
-            model: The model being requested.
-            tokens_requested: How many tokens this call will use.
-
-        Returns:
-            GovernanceResult with the decision and details.
+        Evaluate governance rules AND A/B Experiments.
         """
+        # --- FEATURE 9: A/B TESTING INTEGRATION ---
+        if prompt_name:
+            exp = await self.experiment_repo.get_active_experiment_for_prompt(tenant_id, prompt_name)
+            if exp:
+                import random
+                variant = "B" if random.random() < exp.traffic_split else "A"
+                version = exp.variant_a_version if variant == "A" else exp.variant_b_version
+                
+                return GovernanceResult(
+                    decision=f"ab_test_{variant}",
+                    model_to_use=model,
+                    reason=f"A/B Experiment '{exp.name}' active. Routing to Variant {variant} (v{version})",
+                    rule_id=exp.id
+                )
+
         rules = await self._load_rules_for_tenant(tenant_id)
 
         if not rules:
@@ -492,6 +517,162 @@ class GatewayService:
             from_dt=from_dt,
             to_dt=to_dt,
         )
+
+    # ================================================================
+    # PUBLIC — FALLBACK RESOLUTION
+    # ================================================================
+
+    async def resolve_fallback(
+        self,
+        tenant_id: str,
+        original_model: str,
+        error_status_code: int,
+        error_message: str = "",
+    ) -> Optional[GovernanceResult]:
+        """
+        Resolve a fallback model when the primary provider fails.
+
+        Called by the API proxy when a provider returns a retryable error
+        (429, 500, 503, timeout). This method:
+
+        1. Checks if the error is retryable
+        2. Loads the fallback chain for the model
+        3. Filters out unhealthy providers (circuit breaker)
+        4. Returns the first viable fallback model
+        5. Logs the fallback decision in governance audit
+
+        Args:
+            tenant_id: The tenant making the call.
+            original_model: The model that failed.
+            error_status_code: HTTP status code from the provider.
+            error_message: Error details from the provider.
+
+        Returns:
+            GovernanceResult with allow_fallback decision and the fallback model,
+            or None if no fallback is available.
+        """
+        from modules.gateway.services.mode_router import (
+            GatewayModeRouter,
+            ProviderHealthTracker,
+        )
+
+        # 1. Check if error is retryable
+        if not GatewayModeRouter.is_retryable_error(error_status_code):
+            logger.debug(
+                f"fallback.not_retryable model={original_model} "
+                f"status={error_status_code}"
+            )
+            return None
+
+        # Record the failure for circuit breaker
+        original_provider = GatewayModeRouter.get_provider_for_model(original_model)
+        ProviderHealthTracker.record_failure(original_provider)
+
+        # 2. Get the fallback chain
+        fallback_chain = GatewayModeRouter.get_fallback_chain(
+            original_model, tenant_id
+        )
+
+        if not fallback_chain:
+            logger.warning(
+                f"fallback.no_chain model={original_model} tenant={tenant_id}"
+            )
+            return None
+
+        # 3. Filter out unhealthy providers
+        viable_fallbacks = []
+        for fb_model in fallback_chain:
+            fb_provider = GatewayModeRouter.get_provider_for_model(fb_model)
+            if ProviderHealthTracker.is_healthy(fb_provider):
+                viable_fallbacks.append(fb_model)
+            else:
+                logger.debug(
+                    f"fallback.skip_unhealthy model={fb_model} "
+                    f"provider={fb_provider}"
+                )
+
+        if not viable_fallbacks:
+            logger.warning(
+                f"fallback.all_unhealthy model={original_model} "
+                f"chain={fallback_chain}"
+            )
+            return None
+
+        # 4. Return the first viable fallback
+        fallback_model = viable_fallbacks[0]
+        fallback_provider = GatewayModeRouter.get_provider_for_model(fallback_model)
+
+        logger.info(
+            f"fallback.resolved original={original_model}({original_provider}) "
+            f"→ {fallback_model}({fallback_provider}) "
+            f"reason=status_{error_status_code} tenant={tenant_id}"
+        )
+
+        # 5. Log the fallback decision in governance audit
+        decision = LLMGovernanceDecision(
+            request_id=None,
+            tenant_id=tenant_id,
+            model_requested=original_model,
+            model_used=fallback_model,
+            decision=GovernanceDecision.ALLOW_FALLBACK.value,
+            reason=(
+                f"Auto-fallback: {original_model} returned {error_status_code} "
+                f"({error_message[:200]}). Retrying with {fallback_model}."
+            ),
+        )
+        self.session.add(decision)
+        await self.session.flush()
+
+        # Publish fallback event for observability
+        await self._publish_event("llm.usage.fallback", {
+            "tenant_id": tenant_id,
+            "original_model": original_model,
+            "original_provider": original_provider,
+            "fallback_model": fallback_model,
+            "fallback_provider": fallback_provider,
+            "error_status_code": error_status_code,
+            "error_message": error_message[:200],
+        })
+
+        return GovernanceResult(
+            decision=GovernanceDecision.ALLOW_FALLBACK.value,
+            model_to_use=fallback_model,
+            reason=(
+                f"Fallback from {original_model} to {fallback_model} "
+                f"due to provider error ({error_status_code})"
+            ),
+        )
+
+    async def get_fallback_chain_info(
+        self,
+        model: str,
+        tenant_id: Optional[str] = None,
+    ) -> dict:
+        """
+        Return the fallback chain and provider health for a model.
+        Used by the dashboard to show fallback configuration.
+        """
+        from modules.gateway.services.mode_router import (
+            GatewayModeRouter,
+            ProviderHealthTracker,
+        )
+
+        chain = GatewayModeRouter.get_fallback_chain(model, tenant_id)
+        chain_info = []
+        for fb_model in chain:
+            provider = GatewayModeRouter.get_provider_for_model(fb_model)
+            chain_info.append({
+                "model": fb_model,
+                "provider": provider,
+                "healthy": ProviderHealthTracker.is_healthy(provider),
+            })
+
+        return {
+            "primary_model": model,
+            "primary_provider": GatewayModeRouter.get_provider_for_model(model),
+            "fallback_chain": chain_info,
+            "provider_health": ProviderHealthTracker.get_status(),
+        }
 
     # ================================================================
     # PRIVATE — GOVERNANCE
@@ -651,6 +832,73 @@ class GatewayService:
         )
         self.session.add(decision)
         await self.session.flush()
+
+    # ================================================================
+    # PRIVATE — SEMANTIC CACHE
+    # ================================================================
+
+    async def _check_semantic_cache(self, request: CallRequest) -> Optional[CallResult]:
+        """
+        Check the semantic cache for a similar prompt.
+
+        If a match is found with cosine similarity >= 0.95, return the
+        cached response without calling the LLM provider.
+
+        Returns a CallResult if cache hit, None if cache miss.
+        """
+        if not request.prompt_text:
+            return None  # No prompt text to cache against
+
+        try:
+            from core.response_cache import semantic_cache
+
+            cached = await semantic_cache.lookup(
+                prompt=request.prompt_text,
+                tenant_id=request.tenant_id,
+                model=request.model,
+            )
+
+            if cached is not None:
+                logger.info(
+                    f"semantic_cache.hit tenant={request.tenant_id} "
+                    f"model={request.model} similarity={cached.get('similarity', 0)}"
+                )
+                return CallResult(
+                    success=True,
+                    decision=GovernanceDecision.ALLOW.value,
+                    model_used=cached.get("model", request.model),
+                    log_id=None,  # No log entry — served from cache
+                    was_downgraded=False,
+                    error=None,
+                )
+        except Exception as exc:
+            logger.debug(f"semantic_cache.check_failed error={exc}")
+
+        return None
+
+    async def _store_semantic_cache(self, request: CallRequest) -> None:
+        """
+        Store a prompt-response pair in the semantic cache after a successful call.
+        """
+        if not request.prompt_text or not request.completion_text:
+            return
+
+        try:
+            from core.response_cache import semantic_cache
+
+            await semantic_cache.store(
+                prompt=request.prompt_text,
+                response=request.completion_text,
+                tenant_id=request.tenant_id,
+                model=request.model,
+                metadata={
+                    "input_tokens": request.input_tokens,
+                    "output_tokens": request.output_tokens,
+                    "cost_usd": str(request.cost_usd),
+                },
+            )
+        except Exception as exc:
+            logger.debug(f"semantic_cache.store_failed error={exc}")
 
     # ================================================================
     # PRIVATE — REDIS

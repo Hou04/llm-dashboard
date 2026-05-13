@@ -68,6 +68,10 @@ class LLMTenantContract(Base):
         Boolean, nullable=False, default=True,
         comment="Active contracts are used for billing; inactive are archived",
     )
+    status: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="active",
+        comment="Contract workflow status: draft, proposed, active, rejected",
+    )
     description: Mapped[Optional[str]] = mapped_column(
         Text, nullable=True,
         comment="Human-readable contract description",
@@ -96,6 +100,7 @@ class LLMTenantContract(Base):
         """Convert to the dict format expected by BillingService._apply_contract."""
         return {
             "contract_type": self.contract_type,
+            "status": self.status,
             "base_fee_usd": float(self.base_fee_usd),
             "forfait_tokens": self.forfait_tokens,
             "overage_rate_per_1k": float(self.overage_rate_per_1k),

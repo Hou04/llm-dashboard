@@ -1,0 +1,54 @@
+@startuml ch1_scrum_process
+' ============================================================
+' CHAPITRE 1 — Processus Scrum
+' Professional Enterprise UI Style
+' ============================================================
+
+skinparam backgroundColor #F8FAFC
+skinparam defaultFontName Inter
+skinparam defaultFontSize 12
+skinparam ArrowColor #475569
+skinparam roundcorner 12
+skinparam shadowing false
+
+skinparam rectangle {
+  BackgroundColor #FFFFFF
+  BorderColor #CBD5E1
+  FontColor #0F172A
+  BorderThickness 1.2
+}
+
+title <size:18><b>Processus Scrum — LLM Dashboard</b></size>
+
+rectangle "Product Backlog\n(17 User Stories)" as PB #2563EB;text:white
+
+rectangle "Sprint Planning" as SP #334155;text:white
+
+rectangle "Sprint Backlog" as SBL #475569;text:white
+
+rectangle "Sprint\n(2-4 semaines)" as SPRINT #059669;text:white {
+  rectangle "Daily\nScrum" as DS #047857;text:white
+}
+
+rectangle "Sprint\nReview" as SR #7C3AED;text:white
+
+rectangle "Sprint\nRetrospective" as RETRO #6D28D9;text:white
+
+rectangle "Incrément\nFonctionnel" as INC #0F766E;text:white
+
+PB -right-> SP : "Sélection\ndes items"
+SP -right-> SBL : "Engagement\néquipe"
+SBL -down-> SPRINT : "Développement"
+DS -[hidden]down-> DS
+SPRINT -right-> SR : "Démonstration"
+SR -down-> RETRO : "Inspection"
+RETRO -left-> PB : "Adaptation\ndu backlog"
+SR -right-> INC : "Livraison"
+
+note bottom of SPRINT
+  Sprint 1 : Infrastructure + Gateway
+  Sprint 2 : IA + Analytics
+  Sprint 3 : Entreprise + Déploiement
+end note
+
+@enduml

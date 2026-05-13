@@ -43,6 +43,7 @@ class CallStatus(str, PyEnum):
 class GovernanceDecision(str, PyEnum):
     ALLOW = "allow"
     ALLOW_DOWNGRADE = "allow_downgrade"
+    ALLOW_FALLBACK = "allow_fallback"
     BLOCK = "block"
 
 
@@ -52,6 +53,12 @@ class RuleType(str, PyEnum):
     BUDGET_CAP = "budget_cap"
     RATE_LIMIT = "rate_limit"
     MODEL_DOWNGRADE = "model_downgrade"
+
+class ProviderStatus(str, PyEnum):
+    ONLINE = "online"
+    DEGRADED = "degraded"
+    OFFLINE = "offline"
+    MAINTENANCE = "maintenance"
 
 
 # ============================================================
@@ -197,6 +204,25 @@ class LLMTokenLog(Base):
         Float,
         nullable=True,
         comment="Response quality score 0.0-1.0, populated by downstream evaluation. Used to train the M7 smart router.",
+    )
+
+    # ---- Prompt Inspector (Feature 2) ----
+    prompt_text: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+        comment="The prompt/input text sent to the LLM. Stored for the Request Inspector.",
+    )
+    completion_text: Mapped[Optional[str]] = mapped_column(
+        Text,
+        nullable=True,
+        comment="The completion/response text from the LLM. Stored for the Request Inspector.",
+    )
+    pii_redacted: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default="false",
+        comment="True if PII was detected and redacted in prompt/completion text.",
     )
 
     # ---- Metadata ----
@@ -523,3 +549,25 @@ class LLMGovernanceDecision(Base):
     @property
     def was_downgraded(self) -> bool:
         return self.decision == GovernanceDecision.ALLOW_DOWNGRADE.value
+
+# ============================================================
+# TABLE 4: LLMProviderStatus (Health Check)
+# ============================================================
+
+class LLMProviderStatus(Base):
+    """
+    Real-time health and latency tracking for AI Providers.
+    Updated by background heartbeat workers.
+    """
+    __tablename__ = "llm_provider_status"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    provider_name: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), default="online")
+    latency_ms: Mapped[int] = mapped_column(Integer, default=0)
+    uptime_pct: Mapped[float] = mapped_column(Float, default=100.0)
+    last_check_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
+    def __repr__(self) -> str:
+        return f"<LLMProviderStatus {self.provider_name} status={self.status} latency={self.latency_ms}ms>"

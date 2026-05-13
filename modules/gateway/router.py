@@ -48,6 +48,7 @@ from modules.gateway.schemas import (
 )
 from modules.gateway.services import GatewayService, CallRequest
 from modules.gateway.services.governance_service import GovernanceService
+from modules.prompts.service import PromptService
 from modules.auth.dependencies import (
     get_current_user,
     require_tenant_admin,
@@ -79,6 +80,13 @@ async def get_gateway_service(
     by the get_db() context manager.
     """
     return GatewayService(session)
+
+
+async def get_prompt_service(
+    session: AsyncSession = Depends(get_db),
+) -> PromptService:
+    """FastAPI dependency for PromptService."""
+    return PromptService(session)
 
 
 # ============================================================
@@ -129,6 +137,9 @@ async def log_call(
         request_id=request.request_id,
         error_message=request.error_message,
         metadata=request.metadata,
+        prompt_text=request.prompt_text,
+        completion_text=request.completion_text,
+        session_id=request.session_id,
     )
 
     result = await service.log_call(call_request)
@@ -165,6 +176,332 @@ async def log_stream_chunk_endpoint(
         delta_tokens=request.delta_tokens,
     )
     return {"status": "ok", "total_accumulated_tokens": total}
+
+
+# ============================================================
+# FALLBACK ENDPOINTS
+# ============================================================
+
+@router.post(
+    "/fallback",
+    response_model=dict,
+    summary="Resolve a fallback model after provider failure",
+    description=(
+        "Called by the API proxy when a provider returns a retryable error "
+        "(429, 500, 503, timeout). Returns the next model in the fallback chain. "
+        "Logs the fallback decision in the governance audit trail."
+    ),
+)
+async def resolve_fallback(
+    tenant_id: str = Query(..., description="Tenant making the call"),
+    model: str = Query(..., description="Model that failed"),
+    error_status_code: int = Query(..., description="HTTP status code from provider"),
+    error_message: str = Query("", description="Error details from provider"),
+    service: GatewayService = Depends(get_gateway_service),
+    _user: CurrentUser = Depends(require_tenant_viewer),
+) -> dict:
+    result = await service.resolve_fallback(
+        tenant_id=tenant_id,
+        original_model=model,
+        error_status_code=error_status_code,
+        error_message=error_message,
+    )
+    if result is None:
+        return {
+            "fallback_available": False,
+            "reason": "No viable fallback model available",
+        }
+    return {
+        "fallback_available": True,
+        "fallback_model": result.model_to_use,
+        "decision": result.decision,
+        "reason": result.reason,
+    }
+
+
+@router.get(
+    "/fallback/{model}",
+    response_model=dict,
+    summary="Get the fallback chain and provider health for a model",
+    description=(
+        "Returns the configured fallback chain for the specified model, "
+        "including provider health status from the circuit breaker."
+    ),
+)
+async def get_fallback_chain(
+    model: str,
+    tenant_id: Optional[str] = Query(None, description="Tenant for tenant-specific overrides"),
+    service: GatewayService = Depends(get_gateway_service),
+    _user: CurrentUser = Depends(require_tenant_viewer),
+) -> dict:
+    return await service.get_fallback_chain_info(model=model, tenant_id=tenant_id)
+
+
+# ============================================================
+# PROMPT MANAGED CALLS (Big Company Feature)
+# ============================================================
+
+@router.post(
+    "/prompts/{name}/call",
+    response_model=LogCallResponse,
+    summary="Call an LLM using a Prompt Alias",
+    description=(
+        "Production-grade endpoint that resolves a prompt by name, "
+        "applies A/B experiments, substitutes variables, and calls the LLM. "
+        "The gateway handles all versioning and routing logic."
+    ),
+    tags=["Gateway", "Prompts CMS"],
+)
+async def call_prompt_alias(
+    name: str,
+    request_data: dict, # includes variables, session_id, etc.
+    service: GatewayService = Depends(get_gateway_service),
+    prompt_service: PromptService = Depends(get_prompt_service),
+    user: CurrentUser = Depends(require_tenant_viewer),
+) -> LogCallResponse:
+    # 1. Evaluate Governance & Experiments (to find if we should use a specific version)
+    gov = await service.evaluate_governance(
+        tenant_id=user.tenant_id,
+        model="auto", # Model will be determined by prompt
+        tokens_requested=0,
+        prompt_name=name
+    )
+    
+    # 2. Resolve Prompt Version
+    version = None
+    if gov.decision.startswith("ab_test_"):
+        # Version is stored in reason for now (vX) - need better way in prod but works for demo
+        import re
+        v_match = re.search(r"\(v(\d+)\)", gov.reason)
+        if v_match:
+            version = int(v_match.group(1))
+            
+    # 3. Render Prompt
+    try:
+        rendered_data = await prompt_service.render(
+            tenant_id=user.tenant_id,
+            name=name,
+            variables=request_data.get("variables", {}),
+            version=version
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    
+    if not rendered_data:
+        raise HTTPException(status_code=404, detail=f"Prompt '{name}' not found or no version published.")
+
+    # 4. Prepare Call Request
+    call_req = CallRequest(
+        tenant_id=user.tenant_id,
+        model=rendered_data["model"] or "gpt-4o-mini",
+        provider="openai", # In a real system, resolve from model_router
+        input_tokens=0, # Will be filled after call
+        output_tokens=0,
+        total_tokens=0,
+        cost_usd=Decimal("0"),
+        prompt_text=rendered_data["rendered"],
+        prompt_name=name,
+        prompt_version=rendered_data["version"],
+        session_id=request_data.get("session_id"),
+        request_id=request_data.get("request_id"),
+        metadata={
+            "is_prompt_alias": True,
+            "experiment_id": str(gov.rule_id) if gov.decision.startswith("ab_test_") else None,
+            "variant": gov.decision.split("_")[-1] if gov.decision.startswith("ab_test_") else None
+        }
+    )
+    
+    # 5. Log & Process (In a real system, this would actually call LiteLLM here)
+    result = await service.log_call(call_req)
+    
+    return LogCallResponse(
+        success=result.success,
+        log_id=result.log_id,
+        decision=result.decision,
+        model_used=result.model_used,
+        was_downgraded=result.was_downgraded,
+        error=result.error,
+    )
+
+
+# ============================================================
+# REQUEST INSPECTOR (Prompt Log Viewer)
+# ============================================================
+
+from modules.gateway.schemas import (
+    RequestLogEntry,
+    RequestLogSearchResponse,
+    RequestLogDetailResponse,
+)
+from modules.gateway.repositories.log_repository import LogRepository
+from modules.prompts.service import PromptService
+from modules.prompts.repository import PromptRepository
+
+
+@router.get(
+    "/logs",
+    response_model=RequestLogSearchResponse,
+    summary="Search and browse request logs (Prompt Inspector)",
+    description=(
+        "Searchable, paginated log viewer for debugging prompt/completion pairs. "
+        "Supports full-text search on prompts and completions, plus filtering "
+        "by model, provider, status, and time range."
+    ),
+)
+async def search_logs(
+    tenant_id: Optional[str] = Query(None, description="Filter by tenant"),
+    q: Optional[str] = Query(None, description="Full-text search in prompts and completions"),
+    model: Optional[str] = Query(None, description="Filter by model name"),
+    provider: Optional[str] = Query(None, description="Filter by provider"),
+    status_filter: Optional[str] = Query(None, alias="status", description="Filter by status: success|error|timeout|blocked"),
+    from_date: Optional[date] = Query(None, description="Start date (UTC)"),
+    to_date: Optional[date] = Query(None, description="End date (UTC)"),
+    page: int = Query(1, ge=1, le=1000, description="Page number"),
+    page_size: int = Query(50, ge=1, le=200, description="Results per page"),
+    session: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(require_tenant_viewer),
+) -> RequestLogSearchResponse:
+    """
+    Browse and search LLM request logs.
+
+    Non-super-admins can only see their own tenant's logs.
+    Prompt and completion text are truncated to 500 chars in list view.
+    Use GET /v1/gateway/logs/{log_id} for the full text.
+    """
+    # Enforce tenant isolation
+    effective_tenant = tenant_id
+    if not user.is_super_admin():
+        effective_tenant = user.tenant_id
+
+    # Convert dates to datetimes
+    from_dt = None
+    to_dt = None
+    if from_date:
+        from_dt = datetime(from_date.year, from_date.month, from_date.day, 0, 0, 0, tzinfo=timezone.utc)
+    if to_date:
+        to_dt = datetime(to_date.year, to_date.month, to_date.day, 23, 59, 59, tzinfo=timezone.utc)
+
+    repo = LogRepository(session)
+
+    # Get logs and total count
+    logs = await repo.search_logs(
+        tenant_id=effective_tenant,
+        search_query=q,
+        model=model,
+        provider=provider,
+        status=status_filter,
+        from_dt=from_dt,
+        to_dt=to_dt,
+        page=page,
+        page_size=page_size,
+    )
+    total = await repo.get_log_count(
+        tenant_id=effective_tenant,
+        search_query=q,
+        model=model,
+        provider=provider,
+        status=status_filter,
+        from_dt=from_dt,
+        to_dt=to_dt,
+    )
+
+    # Truncate prompt/completion for list view
+    entries = []
+    for log in logs:
+        entry = RequestLogEntry(
+            id=log.id,
+            trace_id=getattr(log, "trace_id", None),
+            request_id=log.request_id,
+            tenant_id=log.tenant_id,
+            agent_id=log.agent_id,
+            user_id=log.user_id,
+            model=log.model,
+            provider=log.provider,
+            input_tokens=log.input_tokens,
+            output_tokens=log.output_tokens,
+            total_tokens=log.total_tokens,
+            cost_usd=str(log.cost_usd),
+            duration_ms=log.duration_ms,
+            status=log.status,
+            error_message=log.error_message,
+            prompt_text=(log.prompt_text[:500] + "…") if log.prompt_text and len(log.prompt_text) > 500 else log.prompt_text,
+            completion_text=(log.completion_text[:500] + "…") if log.completion_text and len(log.completion_text) > 500 else log.completion_text,
+            pii_redacted=getattr(log, "pii_redacted", False),
+            created_at=log.created_at,
+            metadata=log.metadata_,
+        )
+        entries.append(entry)
+
+    return RequestLogSearchResponse(
+        logs=entries,
+        total=total,
+        page=page,
+        page_size=page_size,
+        has_more=(page * page_size) < total,
+    )
+
+
+@router.get(
+    "/logs/{log_id}",
+    response_model=RequestLogDetailResponse,
+    summary="Get full request log detail with prompt and completion",
+    description=(
+        "Returns the complete prompt and completion text for a single log entry. "
+        "Use this endpoint to inspect the full LLM interaction."
+    ),
+)
+async def get_log_detail(
+    log_id: UUID,
+    session: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(require_tenant_viewer),
+) -> RequestLogDetailResponse:
+    repo = LogRepository(session)
+    log = await repo.get_by_id(log_id)
+
+    if log is None:
+        raise HTTPException(status_code=404, detail=f"Log entry {log_id} not found.")
+
+    # Enforce tenant isolation
+    if not user.is_super_admin() and log.tenant_id != user.tenant_id:
+        raise HTTPException(status_code=403, detail="Access denied to this log entry.")
+
+    entry = RequestLogEntry(
+        id=log.id,
+        trace_id=getattr(log, "trace_id", None),
+        request_id=log.request_id,
+        tenant_id=log.tenant_id,
+        agent_id=log.agent_id,
+        user_id=log.user_id,
+        model=log.model,
+        provider=log.provider,
+        input_tokens=log.input_tokens,
+        output_tokens=log.output_tokens,
+        total_tokens=log.total_tokens,
+        cost_usd=str(log.cost_usd),
+        duration_ms=log.duration_ms,
+        status=log.status,
+        error_message=log.error_message,
+        prompt_text=log.prompt_text,
+        completion_text=log.completion_text,
+        pii_redacted=getattr(log, "pii_redacted", False),
+        created_at=log.created_at,
+        metadata=log.metadata_,
+    )
+
+    # Generate a curl command for replay/debugging
+    curl_cmd = None
+    if log.prompt_text:
+        safe_prompt = log.prompt_text[:200].replace("'", "\\'").replace("\n", "\\n")
+        curl_cmd = (
+            f"curl -X POST https://api.{log.provider}.com/v1/chat/completions "
+            f"-H 'Authorization: Bearer $API_KEY' "
+            f"-d '{{\"model\": \"{log.model}\", \"messages\": [{{\"role\": \"user\", \"content\": \"{safe_prompt}\"}}]}}'"
+        )
+
+    return RequestLogDetailResponse(
+        log=entry,
+        curl_command=curl_cmd,
+    )
 
 
 # ============================================================
@@ -280,10 +617,68 @@ async def health_check() -> HealthResponse:
         timestamp=datetime.now(timezone.utc),
     )
 
+@router.get(
+    "/health/providers",
+    summary="Get real-time health of all AI Providers",
+    tags=["Gateway", "Infrastructure"],
+)
+async def get_provider_health(
+    session: AsyncSession = Depends(get_db),
+    _user: CurrentUser = Depends(require_tenant_viewer),
+):
+    """
+    Returns the latest health status and latency for all AI providers.
+    Data is populated by the background heartbeat worker.
+    """
+    from modules.gateway.models import LLMProviderStatus
+    from sqlalchemy import select
+    
+    stmt = select(LLMProviderStatus).order_by(LLMProviderStatus.provider_name)
+    res = await session.execute(stmt)
+    providers = res.scalars().all()
+    
+    return [
+        {
+            "provider": p.provider_name,
+            "status": p.status,
+            "latency": p.latency_ms,
+            "uptime": p.uptime_pct,
+            "last_check": p.last_check_at
+        } for p in providers
+    ]
 
-# ============================================================
-# M7 GOVERNANCE — dependency
-# ============================================================
+
+@router.get(
+    "/audit",
+    summary="Query administrative audit logs",
+    tags=["Governance", "Compliance"],
+)
+async def get_audit_logs(
+    action: Optional[str] = None,
+    resource_type: Optional[str] = None,
+    user_id: Optional[str] = None,
+    page: int = 1,
+    page_size: int = 50,
+    session: AsyncSession = Depends(get_db),
+    user: CurrentUser = Depends(require_tenant_admin),
+):
+    """
+    Returns a list of administrative actions taken by users.
+    Scoped to the current tenant unless the user is a super_admin.
+    """
+    from core.audit import audit
+    
+    tenant_filter = None if user.is_super_admin() else user.tenant_id
+    logs = await audit.query(
+        session=session,
+        action=action,
+        resource_type=resource_type,
+        user_id=user_id,
+        tenant_id=tenant_filter,
+        limit=page_size,
+        skip=(page - 1) * page_size
+    )
+    return {"logs": logs, "page": page, "page_size": page_size}
 
 async def get_governance_service(
     session: AsyncSession = Depends(get_db),
@@ -361,7 +756,7 @@ async def create_governance_rule(
     await audit.log(
         session=session, user=user, action="create",
         resource_type="governance_rule",
-        resource_id=str(rule.get("id", "")),
+        resource_id=str(getattr(rule, "id", "")),
         description=f"Created governance rule: {data.get('rule_type', 'unknown')}",
         details=data,
     )
@@ -590,4 +985,4 @@ async def get_quota_status(
 ) -> GovernanceQuotaStatus:
     user.require_tenant_access(tenant_id)
     quota = await service.get_quota_status(tenant_id)
-    return GovernanceQuotaStatus(**quota)
+    return GovernanceQuotaStatus(**quota)

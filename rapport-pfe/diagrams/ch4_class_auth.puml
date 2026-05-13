@@ -1,0 +1,97 @@
+@startuml ch4_class_auth
+' ============================================================
+' CHAPITRE 4 — Diagramme de Classes — Module Auth
+' Figure 4.x : Diagramme de classes du module Auth
+' ============================================================
+
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+skinparam roundcorner 5
+skinparam linetype ortho
+
+skinparam class {
+  BackgroundColor #ECF0F1
+  BorderColor #2C3E50
+  FontColor #2C3E50
+  HeaderBackgroundColor #3498DB
+  HeaderFontColor #FFFFFF
+  AttributeFontColor #2C3E50
+  StereotypeFontColor #7F8C8D
+}
+
+title <size:16><b>Diagramme de Classes — Module Auth</b></size>
+
+class LLMAuthUser {
+  - id : UUID <<PK>>
+  - email : String <<unique>>
+  - hashed_password : String
+  - full_name : String
+  - role : RoleEnum
+  - tenant_id : UUID <<FK>>
+  - is_active : Boolean
+  - created_at : DateTime
+  - updated_at : DateTime
+  --
+  + verify_password(password: String) : Boolean
+  + has_permission(resource: String) : Boolean
+}
+
+class LLMApiKey {
+  - id : UUID <<PK>>
+  - key_hash : String <<unique>>
+  - key_prefix : String
+  - name : String
+  - user_id : UUID <<FK>>
+  - tenant_id : UUID <<FK>>
+  - is_active : Boolean
+  - expires_at : DateTime?
+  - last_used_at : DateTime?
+  - created_at : DateTime
+  --
+  + is_expired() : Boolean
+  + update_last_used() : void
+}
+
+class LLMVirtualKey {
+  - id : UUID <<PK>>
+  - name : String
+  - api_key_id : UUID <<FK>>
+  - tenant_id : UUID <<FK>>
+  - budget_limit : Decimal?
+  - budget_used : Decimal
+  - rate_limit_rpm : Integer?
+  - allowed_models : JSON?
+  - is_active : Boolean
+  - created_at : DateTime
+  --
+  + has_budget_remaining() : Boolean
+  + increment_usage(cost: Decimal) : void
+}
+
+class LLMTenant {
+  - id : UUID <<PK>>
+  - name : String <<unique>>
+  - slug : String <<unique>>
+  - is_active : Boolean
+  - settings : JSON
+  - created_at : DateTime
+  --
+  + get_active_users() : List<LLMAuthUser>
+}
+
+enum RoleEnum {
+  SUPER_ADMIN
+  TENANT_ADMIN
+  VIEWER
+  API_KEY
+}
+
+LLMTenant "1" --> "0..*" LLMAuthUser : emploie >
+LLMAuthUser "1" --> "0..*" LLMApiKey : possède >
+LLMApiKey "1" --> "0..*" LLMVirtualKey : dérive >
+LLMAuthUser --> RoleEnum : utilise >
+LLMTenant "1" --> "0..*" LLMApiKey
+LLMTenant "1" --> "0..*" LLMVirtualKey
+
+@enduml

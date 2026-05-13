@@ -49,9 +49,11 @@ from modules.forecasting.router import router as forecasting_router
 from modules.dashboard.router import router as dashboard_router
 from modules.dashboard.websocket import router as ws_router, register_ws_handlers
 from modules.auth.router import router as auth_router
-from modules.pipeline.router import router as pipeline_router
-from modules.pipeline.router import metrics_router
-
+from modules.prompts.router import router as prompts_router
+from modules.tracing.router import router as tracing_router
+from modules.observability.router import router as observability_router
+from modules.gateway.catalog_router import router as catalog_router
+from modules.tenants.router import router as tenants_router
 
 from modules.auth.service import AuthService
 from core.database import async_session_factory
@@ -82,6 +84,7 @@ async def lifespan(app: FastAPI):
         "changeme",
         "secret",
         "",
+        "dev-secret-key-change-in-production"
     ):
         raise RuntimeError(
             "FATAL: SECRET_KEY is set to a default/insecure value. "
@@ -169,9 +172,12 @@ app.include_router(forecasting_router)
 app.include_router(dashboard_router)
 app.include_router(billing_router)
 app.include_router(auth_router)
-app.include_router(pipeline_router)
-app.include_router(metrics_router)   # public /v1/metrics + /v1/audit-log
+app.include_router(prompts_router)
+app.include_router(tracing_router)
+app.include_router(observability_router)
 app.include_router(ws_router)
+app.include_router(catalog_router)
+app.include_router(tenants_router)
 
 
 # ============================================================

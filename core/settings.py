@@ -72,6 +72,10 @@ class Settings(BaseSettings):
     secret_key: str = Field(
         description="Secret key for signing tokens"
     )
+    admin_password: str = Field(
+        default="Admin@1234",
+        description="Default password for the initial super_admin account. Should be overridden in .env for production."
+    )
 
     # --------------------------------------------------------
     # CORS — comma-separated allowed origins

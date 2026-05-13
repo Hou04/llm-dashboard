@@ -1,0 +1,534 @@
+% ============================================================
+% CHAPITRE 4 — SPRINT 1 : INFRASTRUCTURE ET GATEWAY LLM
+% ============================================================
+
+\chapter{Sprint 1 --- Infrastructure et Gateway LLM}
+
+\section*{Plan}
+
+\begin{tabular}{r l r}
+\textbf{1} & \textbf{Sprint Planning} & \textbf{\pageref{sec:s1_planning}} \\
+\textbf{2} & \textbf{Analyse des User Stories} & \textbf{\pageref{sec:s1_stories}} \\
+\textbf{3} & \textbf{Conception} & \textbf{\pageref{sec:s1_conception}} \\
+\textbf{4} & \textbf{Réalisation et tests} & \textbf{\pageref{sec:s1_realisation}} \\
+\textbf{5} & \textbf{Sprint Rétrospective} & \textbf{\pageref{sec:s1_retro}} \\
+\end{tabular}
+
+\section*{Introduction}
+
+Ce chapitre couvre le premier sprint de développement, consacré à la mise en place de l'infrastructure technique fondamentale de la plateforme. Les modules développés durant ce sprint constituent le socle sur lequel reposent tous les traitements ultérieurs~: l'authentification et le contrôle d'accès, le Gateway LLM avec son moteur de gouvernance, le système d'analytics et le tableau de bord exécutif.
+
+% ────────────────────────────────────────────────────────────
+\section{Sprint Planning}
+\label{sec:s1_planning}
+% ────────────────────────────────────────────────────────────
+
+Le Sprint~1 couvre les User Stories suivantes, sélectionnées en fonction de leur criticité pour le fonctionnement de base de la plateforme~:
+
+\begin{table}[H]
+\centering
+\caption{Sprint Backlog --- Sprint 1}
+\label{tab:sprint1_backlog}
+\begin{tabularx}{\textwidth}{|c|l|X|c|}
+\hline
+\textbf{ID} & \textbf{Module} & \textbf{User Story} & \textbf{Priorité} \\
+\hline
+US-1 & Auth & S'authentifier et gérer les rôles RBAC & Must \\
+\hline
+US-2 & Auth & Gérer les clés API et les clés virtuelles & Must \\
+\hline
+US-3 & Gateway & Envoyer un appel LLM via le proxy intelligent & Must \\
+\hline
+US-4 & Gateway & Configurer et appliquer les règles de gouvernance & Must \\
+\hline
+US-5 & Dashboard & Consulter le tableau de bord exécutif avec KPIs & Must \\
+\hline
+US-6 & Dashboard & Visualiser les graphiques de tendance & Must \\
+\hline
+\end{tabularx}
+\end{table}
+
+
+% ────────────────────────────────────────────────────────────
+\section{Analyse des User Stories}
+\label{sec:s1_stories}
+% ────────────────────────────────────────────────────────────
+
+\subsection{User Story~: S'authentifier (US-1)}
+
+\begin{table}[H]
+\centering
+\caption{User Story US-1~: Authentification}
+\label{tab:us1}
+\begin{tabularx}{\textwidth}{|l|X|}
+\hline
+\textbf{Titre} & S'authentifier et accéder à la plateforme \\
+\hline
+\textbf{En tant que} & Utilisateur de la plateforme \\
+\hline
+\textbf{Je veux} & M'inscrire et m'authentifier avec un email et un mot de passe \\
+\hline
+\textbf{Afin de} & Accéder aux fonctionnalités selon mon rôle RBAC \\
+\hline
+\textbf{Critères d'acceptation} & \begin{minipage}[t]{\linewidth}\vspace{2pt}
+\begin{itemize}[noitemsep,topsep=0pt]
+\item L'authentification retourne un access token JWT (30~min) et un refresh token (7~jours)
+\item Le mot de passe est haché avec PBKDF2-SHA256 (600\,000 itérations)
+\item La déconnexion blackliste le token dans Redis
+\item L'accès est restreint selon les 4 rôles RBAC
+\end{itemize}\vspace{2pt}
+\end{minipage} \\
+\hline
+\end{tabularx}
+\end{table}
+
+
+\subsection{User Story~: Gateway LLM (US-3)}
+
+\begin{table}[H]
+\centering
+\caption{User Story US-3~: Gateway LLM}
+\label{tab:us3}
+\begin{tabularx}{\textwidth}{|l|X|}
+\hline
+\textbf{Titre} & Envoyer un appel LLM via le proxy intelligent \\
+\hline
+\textbf{En tant que} & Agent applicatif (QALITAS, GMAO PRO) \\
+\hline
+\textbf{Je veux} & Envoyer mes requêtes LLM à travers le Gateway \\
+\hline
+\textbf{Afin de} & Bénéficier du monitoring, de la gouvernance et du cache sémantique \\
+\hline
+\textbf{Critères d'acceptation} & \begin{minipage}[t]{\linewidth}\vspace{2pt}
+\begin{itemize}[noitemsep,topsep=0pt]
+\item Le Gateway route vers 5+ fournisseurs (OpenAI, Anthropic, Google, Groq, Cohere)
+\item Chaque appel est journalisé dans la table \texttt{llm\_token\_log} (hypertable TimescaleDB)
+\item Les règles de gouvernance sont évaluées avant l'exécution
+\item Un événement \texttt{llm.call.completed} est publié sur le bus d'événements
+\item Le cache sémantique réduit les appels redondants de 30--60\,\%
+\end{itemize}\vspace{2pt}
+\end{minipage} \\
+\hline
+\end{tabularx}
+\end{table}
+
+
+\subsection{User Story~: Gouvernance (US-4)}
+
+\begin{table}[H]
+\centering
+\caption{User Story US-4~: Gouvernance temps réel}
+\label{tab:us4}
+\begin{tabularx}{\textwidth}{|l|X|}
+\hline
+\textbf{Titre} & Configurer et appliquer les règles de gouvernance \\
+\hline
+\textbf{En tant que} & Administrateur tenant \\
+\hline
+\textbf{Je veux} & Définir des règles de quota, de budget et de restriction de modèles \\
+\hline
+\textbf{Afin de} & Contrôler les coûts et l'utilisation des LLM de mon organisation \\
+\hline
+\textbf{Critères d'acceptation} & \begin{minipage}[t]{\linewidth}\vspace{2pt}
+\begin{itemize}[noitemsep,topsep=0pt]
+\item 5 types de règles supportés~: \texttt{rate\_limit}, \texttt{budget\_cap}, \texttt{model\_restriction}, \texttt{token\_limit}, \texttt{time\_restriction}
+\item Évaluation en cascade avec journalisation de chaque décision
+\item Compteurs Redis atomiques pour le rate limiting en temps réel
+\item Interface CRUD complète pour la gestion des règles
+\end{itemize}\vspace{2pt}
+\end{minipage} \\
+\hline
+\end{tabularx}
+\end{table}
+
+
+\subsection{User Story~: Tableau de bord (US-5)}
+
+\begin{table}[H]
+\centering
+\caption{User Story US-5~: Tableau de bord exécutif}
+\label{tab:us5}
+\begin{tabularx}{\textwidth}{|l|X|}
+\hline
+\textbf{Titre} & Consulter le tableau de bord exécutif \\
+\hline
+\textbf{En tant que} & Manager / Administrateur \\
+\hline
+\textbf{Je veux} & Visualiser les KPIs de consommation LLM en temps réel \\
+\hline
+\textbf{Afin de} & Prendre des décisions éclairées sur l'utilisation des LLM \\
+\hline
+\textbf{Critères d'acceptation} & \begin{minipage}[t]{\linewidth}\vspace{2pt}
+\begin{itemize}[noitemsep,topsep=0pt]
+\item Affichage des 4 KPIs principaux~: tokens totaux, coût total, nombre de requêtes, taux d'erreur
+\item Graphiques de tendance sur 7j, 30j, 90j (Recharts)
+\item Mises à jour en temps réel via WebSocket
+\item Interface responsive avec animations fluides (Framer Motion)
+\end{itemize}\vspace{2pt}
+\end{minipage} \\
+\hline
+\end{tabularx}
+\end{table}
+
+
+\subsection{Spécification des cas d'utilisation --- Sprint 1}
+
+Le diagramme de cas d'utilisation suivant présente les interactions spécifiques planifiées pour le Sprint~1, en mettant en évidence les rôles des acteurs et les opérations qu'ils peuvent effectuer.
+
+\begin{figure}[H]
+    \centering
+    \fbox{\parbox{14cm}{\centering\vspace{3cm}\textit{Diagramme de cas d'utilisation --- Sprint 1}\\[0.5cm]\textit{(Voir fichier PlantUML~: ch4\_uc\_sprint1.puml)}\vspace{3cm}}}
+    \caption{Diagramme de cas d'utilisation du Sprint 1}
+    \label{fig:uc_sprint1}
+\end{figure}
+
+
+\subsection{Description textuelle des cas d'utilisation}
+
+Les tableaux suivants fournissent une description détaillée de chaque cas d'utilisation développé dans ce sprint, précisant les acteurs, les préconditions, les scénarios principaux et alternatifs, conformément aux bonnes pratiques de spécification UML.
+
+\begin{table}[H]
+\centering
+\caption{Description détaillée du cas d'utilisation \textit{S'authentifier}}
+\label{tab:uc_desc_auth}
+\begin{tabularx}{\textwidth}{|l|X|}
+\hline
+\textbf{Cas d'utilisation} & S'authentifier \\
+\hline
+\textbf{Acteur principal} & Utilisateur (Super Admin, Tenant Admin, Observateur) \\
+\hline
+\textbf{Préconditions} & L'utilisateur possède un compte créé dans le système \\
+\hline
+\textbf{Postconditions} & L'utilisateur reçoit un access token JWT et un refresh token \\
+\hline
+\textbf{Scénario principal} & \begin{minipage}[t]{\linewidth}\vspace{2pt}
+\begin{enumerate}[noitemsep,topsep=0pt]
+\item L'utilisateur accède à la page de connexion
+\item L'utilisateur saisit son email et son mot de passe
+\item Le système vérifie les identifiants (PBKDF2-SHA256, 600\,000 itérations)
+\item Le système génère un access token JWT (validité~: 30~min) et un refresh token (7~jours)
+\item Le système redirige l'utilisateur vers le tableau de bord selon son rôle RBAC
+\end{enumerate}\vspace{2pt}
+\end{minipage} \\
+\hline
+\textbf{Scénario alternatif} & \begin{minipage}[t]{\linewidth}\vspace{2pt}
+\begin{itemize}[noitemsep,topsep=0pt]
+\item \textbf{3a.} Identifiants invalides~: le système affiche un message d'erreur 401 et incrémente le compteur d'échecs
+\item \textbf{4a.} Token expiré~: le client envoie le refresh token pour obtenir un nouveau access token
+\item \textbf{5a.} Déconnexion~: le token est ajouté à la liste noire Redis avec un TTL de 30~minutes
+\end{itemize}\vspace{2pt}
+\end{minipage} \\
+\hline
+\end{tabularx}
+\end{table}
+
+
+\begin{table}[H]
+\centering
+\caption{Description détaillée du cas d'utilisation \textit{Envoyer un appel LLM}}
+\label{tab:uc_desc_gateway}
+\begin{tabularx}{\textwidth}{|l|X|}
+\hline
+\textbf{Cas d'utilisation} & Envoyer un appel LLM via le Gateway \\
+\hline
+\textbf{Acteur principal} & Agent applicatif (QALITAS, GMAO PRO) \\
+\hline
+\textbf{Préconditions} & L'agent possède une clé API valide et le tenant est actif \\
+\hline
+\textbf{Postconditions} & La réponse LLM est retournée et l'appel est journalisé dans TimescaleDB \\
+\hline
+\textbf{Scénario principal} & \begin{minipage}[t]{\linewidth}\vspace{2pt}
+\begin{enumerate}[noitemsep,topsep=0pt]
+\item L'agent envoie une requête POST vers \texttt{/v1/gateway/chat/completions}
+\item Le Gateway évalue les 5 types de règles de gouvernance (rate limit, budget, modèle, tokens, horaire)
+\item Le Gateway vérifie le cache sémantique (similarité cosinus > 0.95)
+\item Cache miss~: le Gateway route la requête vers le fournisseur LLM approprié
+\item Le Gateway calcule le coût (tokens $\times$ pricing par modèle)
+\item Le Gateway journalise l'appel dans \texttt{llm\_token\_log} (hypertable TimescaleDB)
+\item Le Gateway publie l'événement \texttt{llm.call.completed} sur le bus
+\item La réponse LLM est retournée à l'agent avec les métadonnées d'usage
+\end{enumerate}\vspace{2pt}
+\end{minipage} \\
+\hline
+\textbf{Scénario alternatif} & \begin{minipage}[t]{\linewidth}\vspace{2pt}
+\begin{itemize}[noitemsep,topsep=0pt]
+\item \textbf{2a.} Règle bloquante~: le Gateway retourne 429 avec le motif de blocage
+\item \textbf{3a.} Cache hit~: la réponse cachée est retournée (coût = 0, latence < 10~ms)
+\item \textbf{4a.} Fournisseur indisponible~: le Gateway tente un fallback vers un fournisseur alternatif
+\end{itemize}\vspace{2pt}
+\end{minipage} \\
+\hline
+\end{tabularx}
+\end{table}
+
+
+\begin{table}[H]
+\centering
+\caption{Description détaillée du cas d'utilisation \textit{Configurer la gouvernance}}
+\label{tab:uc_desc_governance}
+\begin{tabularx}{\textwidth}{|l|X|}
+\hline
+\textbf{Cas d'utilisation} & Configurer les règles de gouvernance \\
+\hline
+\textbf{Acteur principal} & Administrateur tenant \\
+\hline
+\textbf{Préconditions} & L'utilisateur est authentifié avec le rôle \texttt{TENANT\_ADMIN} \\
+\hline
+\textbf{Postconditions} & La règle est persistée et active pour les prochains appels LLM \\
+\hline
+\textbf{Scénario principal} & \begin{minipage}[t]{\linewidth}\vspace{2pt}
+\begin{enumerate}[noitemsep,topsep=0pt]
+\item L'administrateur accède à l'interface de gouvernance
+\item L'administrateur sélectionne le type de règle (rate limit, budget cap, model restriction, token limit, time restriction)
+\item L'administrateur configure le seuil, la portée (tenant/utilisateur/modèle) et l'action (bloquer/alerter)
+\item Le système valide les paramètres et persiste la règle
+\item Le système confirme l'activation de la règle
+\end{enumerate}\vspace{2pt}
+\end{minipage} \\
+\hline
+\textbf{Scénario alternatif} & \begin{minipage}[t]{\linewidth}\vspace{2pt}
+\begin{itemize}[noitemsep,topsep=0pt]
+\item \textbf{4a.} Paramètres invalides~: le système affiche les erreurs de validation
+\item \textbf{5a.} Règle en conflit~: le système alerte sur les conflits potentiels avec les règles existantes
+\end{itemize}\vspace{2pt}
+\end{minipage} \\
+\hline
+\end{tabularx}
+\end{table}
+
+
+\begin{table}[H]
+\centering
+\caption{Description détaillée du cas d'utilisation \textit{Consulter le tableau de bord}}
+\label{tab:uc_desc_dashboard}
+\begin{tabularx}{\textwidth}{|l|X|}
+\hline
+\textbf{Cas d'utilisation} & Consulter le tableau de bord exécutif \\
+\hline
+\textbf{Acteur principal} & Administrateur tenant / Observateur \\
+\hline
+\textbf{Préconditions} & L'utilisateur est authentifié et son tenant possède des données d'utilisation \\
+\hline
+\textbf{Postconditions} & Les KPIs et graphiques sont affichés avec les données les plus récentes \\
+\hline
+\textbf{Scénario principal} & \begin{minipage}[t]{\linewidth}\vspace{2pt}
+\begin{enumerate}[noitemsep,topsep=0pt]
+\item L'utilisateur accède au tableau de bord via le menu principal
+\item Le système charge les 4 KPIs (tokens, coût, requêtes, taux d'erreur) via l'API REST
+\item Le système établit une connexion WebSocket pour les mises à jour temps réel
+\item L'utilisateur sélectionne la période d'analyse (7j, 30j, 90j)
+\item Le système affiche les graphiques de tendance (Recharts) avec animations (Framer Motion)
+\item Les nouvelles données sont poussées automatiquement via WebSocket
+\end{enumerate}\vspace{2pt}
+\end{minipage} \\
+\hline
+\textbf{Scénario alternatif} & \begin{minipage}[t]{\linewidth}\vspace{2pt}
+\begin{itemize}[noitemsep,topsep=0pt]
+\item \textbf{2a.} Aucune donnée~: le système affiche un état vide avec un message d'invitation à effectuer un premier appel LLM
+\item \textbf{3a.} WebSocket indisponible~: le système bascule en mode polling (rafraîchissement toutes les 30~secondes)
+\end{itemize}\vspace{2pt}
+\end{minipage} \\
+\hline
+\end{tabularx}
+\end{table}
+
+
+% ────────────────────────────────────────────────────────────
+\section{Conception}
+\label{sec:s1_conception}
+% ────────────────────────────────────────────────────────────
+
+\subsection{Diagramme de classes --- Module Auth}
+
+Le diagramme de classes du module Auth modélise les entités nécessaires à la gestion de l'authentification et du contrôle d'accès~:
+
+\begin{figure}[H]
+    \centering
+    \fbox{\parbox{14cm}{\centering\vspace{4cm}\textit{Diagramme de classes --- Module Auth}\\[0.5cm]\textit{(Classes~: LLMAuthUser, LLMApiKey, LLMVirtualKey)}\\[0.5cm]\textit{(Relations~: User 1..* ApiKey, User 1..* VirtualKey)}\vspace{3cm}}}
+    \caption{Diagramme de classes du module Auth}
+    \label{fig:class_auth}
+\end{figure}
+
+\subsection{Diagramme de classes --- Module Gateway et Gouvernance}
+
+Le diagramme de classes du module Gateway modélise les composants essentiels du proxy LLM~: le moteur de gouvernance avec ses cinq types de règles, le cache sémantique, le registre de fournisseurs et le journal d'appels~:
+
+\begin{figure}[H]
+    \centering
+    \fbox{\parbox{14cm}{\centering\vspace{4cm}\textit{Diagramme de classes --- Module Gateway}\\[0.5cm]\textit{(Classes~: GatewayService, GovernanceEngine, GovernanceRule, SemanticCacheService,}\\
+    \textit{ProviderRegistry, LLMProvider, LLMTokenLog, GovernanceDecision)}\\[0.5cm]\textit{(5 providers~: OpenAI, Anthropic, Google, Groq, Cohere)}\\[0.3cm]\textit{(Voir fichier PlantUML~: ch4\_class\_gateway.puml)}\vspace{3cm}}}
+    \caption{Diagramme de classes du module Gateway et Gouvernance}
+    \label{fig:class_gateway}
+\end{figure}
+
+
+
+
+\subsection{Diagramme de séquence --- Flux d'authentification}
+
+\begin{figure}[H]
+    \centering
+    \fbox{\parbox{14cm}{\centering\vspace{4cm}\textit{Diagramme de séquence --- Authentification JWT}\\[0.5cm]\textit{(Client $\rightarrow$ API $\rightarrow$ AuthService $\rightarrow$ DB $\rightarrow$ Redis)}\\[0.5cm]\textit{(1. POST /v1/auth/login \quad 2. Vérification PBKDF2 \quad 3. Génération JWT \quad 4. Retour tokens)}\vspace{3cm}}}
+    \caption{Diagramme de séquence --- Flux d'authentification}
+    \label{fig:seq_auth}
+\end{figure}
+
+\subsection{Diagramme de séquence --- Flux Gateway LLM}
+
+\begin{figure}[H]
+    \centering
+    \fbox{\parbox{14cm}{\centering\vspace{4cm}\textit{Diagramme de séquence --- Appel LLM via le Gateway}\\[0.5cm]\textit{(Agent $\rightarrow$ Gateway $\rightarrow$ GovernanceEngine $\rightarrow$ SemanticCache $\rightarrow$ LLMProvider $\rightarrow$ TokenLog)}\\[0.5cm]\textit{(1. Évaluation des règles \quad 2. Vérification cache sémantique \quad 3. Appel fournisseur \quad 4. Journalisation \quad 5. Publication événement)}\vspace{3cm}}}
+    \caption{Diagramme de séquence --- Flux d'un appel LLM à travers le Gateway}
+    \label{fig:seq_gateway}
+\end{figure}
+
+\subsection{Diagramme de composants --- Architecture modulaire}
+
+\begin{figure}[H]
+    \centering
+    \fbox{\parbox{14cm}{\centering\vspace{4cm}\textit{Diagramme de composants --- Architecture modulaire du backend}\\[0.5cm]\textit{(12 modules~: Auth, Gateway, Analytics, Detection, Forecasting,}\\
+    \textit{Dashboard, Billing, Prompts, Tracing, Observability, Tenants, Catalog)}\\[0.5cm]\textit{(Communication via Event Bus asynchrone et injection de dépendances)}\vspace{3cm}}}
+    \caption{Diagramme de composants de la plateforme}
+    \label{fig:component_diagram}
+\end{figure}
+
+
+% ────────────────────────────────────────────────────────────
+\section{Réalisation et tests}
+\label{sec:s1_realisation}
+% ────────────────────────────────────────────────────────────
+
+\subsection{Module Auth --- Implémentation}
+
+Le module d'authentification implémente le standard JWT (RFC~7519)~\cite{rfc7519} avec les caractéristiques suivantes~:
+
+\begin{lstlisting}[language=Python3, caption={Extrait du service d'authentification (modules/auth/service.py)}]
+class AuthService:
+    async def authenticate(self, email: str, password: str) -> TokenPair:
+        user = await self.repo.get_by_email(email)
+        if not user or not verify_password(password, user.hashed_password):
+            raise InvalidCredentialsError()
+        
+        access_token = create_access_token(
+            user_id=str(user.id),
+            role=user.role,
+            tenant_id=str(user.tenant_id),
+            expires_delta=timedelta(minutes=30),
+        )
+        refresh_token = create_refresh_token(
+            user_id=str(user.id),
+            expires_delta=timedelta(days=7),
+        )
+        return TokenPair(access_token=access_token, refresh_token=refresh_token)
+\end{lstlisting}
+
+\subsection{Module Gateway --- Implémentation}
+
+Le Gateway LLM constitue le c\oe ur fonctionnel de la plateforme. Il intercepte les requêtes, applique la gouvernance, interroge le cache sémantique, route vers le fournisseur approprié et journalise l'interaction~:
+
+\begin{lstlisting}[language=Python3, caption={Flux simplifié du Gateway (modules/gateway/services/gateway\_service.py)}]
+class GatewayService:
+    async def process_llm_call(self, request: LLMCallRequest, 
+                                tenant_id: str) -> LLMCallResponse:
+        # 1. Evaluer les regles de gouvernance
+        decision = await self.governance.evaluate(request, tenant_id)
+        if decision.action == "block":
+            raise GovernanceBlockError(decision.reason)
+        
+        # 2. Verifier le cache semantique
+        cached = await self.semantic_cache.get(request.prompt, tenant_id)
+        if cached:
+            return cached
+        
+        # 3. Router vers le fournisseur LLM
+        response = await self.provider.call(request)
+        
+        # 4. Journaliser dans TimescaleDB
+        await self.log_repository.create(token_log_entry)
+        
+        # 5. Publier l'evenement
+        publish_background("llm.call.completed", call_data)
+        
+        return response
+\end{lstlisting}
+
+\subsection{Module Dashboard --- Captures d'écran}
+
+\begin{figure}[H]
+    \centering
+    \fbox{\parbox{14cm}{\centering\vspace{4cm}\textit{Capture d'écran --- Tableau de bord exécutif}\\[0.5cm]\textit{(4 cartes KPI : Tokens totaux, Coût total, Requêtes, Taux d'erreur)}\\[0.5cm]\textit{(Graphique de tendance Recharts avec sélecteur de période)}\vspace{3cm}}}
+    \caption{Tableau de bord exécutif --- Vue d'ensemble}
+    \label{fig:dashboard_exec}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \fbox{\parbox{14cm}{\centering\vspace{4cm}\textit{Capture d'écran --- Interface de gouvernance}\\[0.5cm]\textit{(Liste des règles actives avec type, seuil et statut)}\\[0.5cm]\textit{(Formulaire de création de règle)}\vspace{3cm}}}
+    \caption{Interface de gestion de la gouvernance}
+    \label{fig:governance_ui}
+\end{figure}
+
+\subsection{Tests du Sprint~1}
+
+Les tests ont été exécutés avec \textbf{pytest} et couvrent les trois modules développés~:
+
+\begin{table}[H]
+\centering
+\caption{Résultats des tests --- Sprint 1}
+\label{tab:tests_s1}
+\begin{tabular}{|l|c|c|c|}
+\hline
+\textbf{Module} & \textbf{Tests unitaires} & \textbf{Tests d'intégration} & \textbf{Résultat} \\
+\hline
+Auth & 12 & 5 & \textcolor{ForestGreen}{17/17 PASS} \\
+\hline
+Gateway & 15 & 8 & \textcolor{ForestGreen}{23/23 PASS} \\
+\hline
+Dashboard & 8 & 3 & \textcolor{ForestGreen}{11/11 PASS} \\
+\hline
+\textbf{Total Sprint 1} & \textbf{35} & \textbf{16} & \textcolor{ForestGreen}{\textbf{51/51 PASS}} \\
+\hline
+\end{tabular}
+\end{table}
+
+
+% ────────────────────────────────────────────────────────────
+\section{Sprint Rétrospective}
+\label{sec:s1_retro}
+% ────────────────────────────────────────────────────────────
+
+\begin{table}[H]
+\centering
+\caption{Rétrospective du Sprint 1}
+\label{tab:retro_s1}
+\begin{tabularx}{\textwidth}{|l|X|}
+\hline
+\textbf{Ce qui a bien fonctionné} & \begin{minipage}[t]{\linewidth}\vspace{2pt}
+\begin{itemize}[noitemsep,topsep=0pt]
+\item L'architecture modulaire a facilité le développement parallèle des modules
+\item Le bus d'événements asynchrone a permis un découplage efficace entre les modules
+\item La documentation Swagger auto-générée a accéléré le développement frontend
+\end{itemize}\vspace{2pt}
+\end{minipage} \\
+\hline
+\textbf{Ce qui peut être amélioré} & \begin{minipage}[t]{\linewidth}\vspace{2pt}
+\begin{itemize}[noitemsep,topsep=0pt]
+\item La configuration initiale de TimescaleDB a nécessité des ajustements
+\item Le cache sémantique nécessite un fine-tuning du seuil de similarité cosinus
+\end{itemize}\vspace{2pt}
+\end{minipage} \\
+\hline
+\textbf{Actions pour le prochain sprint} & \begin{minipage}[t]{\linewidth}\vspace{2pt}
+\begin{itemize}[noitemsep,topsep=0pt]
+\item Implémenter les algorithmes de détection d'anomalies
+\item Développer le module de prévision budgétaire
+\item Mettre en place le pipeline d'agrégation Celery
+\end{itemize}\vspace{2pt}
+\end{minipage} \\
+\hline
+\end{tabularx}
+\end{table}
+
+\section*{Conclusion}
+
+Le Sprint~1 a permis de mettre en place les fondations techniques de la plateforme LLM Dashboard. Les modules d'authentification, de Gateway LLM, de gouvernance et de tableau de bord constituent un socle fonctionnel solide. L'architecture modulaire adoptée, combinée au bus d'événements asynchrone et à l'injection de dépendances FastAPI, garantit l'extensibilité du système. Les 51 tests unitaires et d'intégration validés confirment la robustesse des implémentations. Le chapitre suivant détaille le Sprint~2, consacré aux composants d'intelligence artificielle de la plateforme.

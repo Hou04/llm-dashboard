@@ -345,3 +345,115 @@ class LogRepository:
         for row in result.all():
             counts[row.status] = row.count
         return counts
+
+    # ================================================================
+    # READS — Request Inspector (Feature 2)
+    # ================================================================
+
+    async def search_logs(
+        self,
+        tenant_id: Optional[str] = None,
+        search_query: Optional[str] = None,
+        model: Optional[str] = None,
+        provider: Optional[str] = None,
+        status: Optional[str] = None,
+        from_dt: Optional[datetime] = None,
+        to_dt: Optional[datetime] = None,
+        page: int = 1,
+        page_size: int = 50,
+    ) -> list[LLMTokenLog]:
+        """
+        Search log entries with full-text search and filters.
+
+        Supports:
+        - Full-text search on prompt_text and completion_text
+        - Filtering by tenant, model, provider, status
+        - Time-range filtering
+        - Pagination (page/page_size)
+
+        Results ordered newest-first.
+        """
+        conditions = []
+
+        if tenant_id:
+            conditions.append(LLMTokenLog.tenant_id == tenant_id)
+        if model:
+            conditions.append(LLMTokenLog.model == model)
+        if provider:
+            conditions.append(LLMTokenLog.provider == provider)
+        if status:
+            conditions.append(LLMTokenLog.status == status)
+        if from_dt:
+            conditions.append(LLMTokenLog.created_at >= from_dt)
+        if to_dt:
+            conditions.append(LLMTokenLog.created_at <= to_dt)
+
+        # Full-text search on prompt and completion
+        if search_query:
+            search_pattern = f"%{search_query}%"
+            from sqlalchemy import or_
+            conditions.append(
+                or_(
+                    LLMTokenLog.prompt_text.ilike(search_pattern),
+                    LLMTokenLog.completion_text.ilike(search_pattern),
+                    LLMTokenLog.error_message.ilike(search_pattern),
+                )
+            )
+
+        query = select(LLMTokenLog)
+        if conditions:
+            query = query.where(and_(*conditions))
+
+        query = (
+            query
+            .order_by(LLMTokenLog.created_at.desc())
+            .offset((page - 1) * page_size)
+            .limit(page_size)
+        )
+
+        result = await self.session.execute(query)
+        return list(result.scalars().all())
+
+    async def get_log_count(
+        self,
+        tenant_id: Optional[str] = None,
+        search_query: Optional[str] = None,
+        model: Optional[str] = None,
+        provider: Optional[str] = None,
+        status: Optional[str] = None,
+        from_dt: Optional[datetime] = None,
+        to_dt: Optional[datetime] = None,
+    ) -> int:
+        """Count matching log entries for pagination metadata."""
+        conditions = []
+
+        if tenant_id:
+            conditions.append(LLMTokenLog.tenant_id == tenant_id)
+        if model:
+            conditions.append(LLMTokenLog.model == model)
+        if provider:
+            conditions.append(LLMTokenLog.provider == provider)
+        if status:
+            conditions.append(LLMTokenLog.status == status)
+        if from_dt:
+            conditions.append(LLMTokenLog.created_at >= from_dt)
+        if to_dt:
+            conditions.append(LLMTokenLog.created_at <= to_dt)
+
+        if search_query:
+            search_pattern = f"%{search_query}%"
+            from sqlalchemy import or_
+            conditions.append(
+                or_(
+                    LLMTokenLog.prompt_text.ilike(search_pattern),
+                    LLMTokenLog.completion_text.ilike(search_pattern),
+                    LLMTokenLog.error_message.ilike(search_pattern),
+                )
+            )
+
+        query = select(func.count(LLMTokenLog.id))
+        if conditions:
+            query = query.where(and_(*conditions))
+
+        result = await self.session.execute(query)
+        return int(result.scalar() or 0)

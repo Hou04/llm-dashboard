@@ -1,0 +1,108 @@
+@startuml ch6_seq_tracing
+' ============================================================
+' CHAPITRE 6 — Diagramme de Séquence — Traçage d'une Session
+' Figure 6.x : Cycle de vie d'une session conversationnelle
+' ============================================================
+
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+skinparam roundcorner 5
+skinparam sequenceArrowThickness 2
+
+skinparam sequence {
+  ParticipantBackgroundColor #2C3E50
+  ParticipantFontColor #FFFFFF
+  ParticipantBorderColor #1A252F
+  LifeLineBackgroundColor #E8E8E8
+  ArrowColor #2C3E50
+}
+
+title <size:16><b>Diagramme de Séquence — Traçage d'une Session LLM</b></size>
+
+actor "Agent\nApplicatif" as Agent
+participant "Gateway\nService" as GW
+participant "Tracing\nService" as TS
+database "PostgreSQL\nllm_session" as DB
+participant "Event\nBus" as Bus
+participant "Frontend\nDashboard" as UI
+
+== Ouverture de session ==
+
+Agent -> GW : POST /v1/gateway/chat/completions\nHeader: X-Session-Id: null
+activate GW
+
+GW -> TS : create_session(tenant_id, api_key_id)
+activate TS
+TS -> DB : INSERT INTO llm_session
+activate DB
+DB --> TS : session_id = "sess-abc-123"
+deactivate DB
+TS --> GW : session_id
+deactivate TS
+
+note right of GW
+  Le session_id est
+  retourné dans le header
+  de réponse pour les
+  appels suivants
+end note
+
+GW -> GW : process_llm_call(request)
+GW -> TS : add_turn(session_id, log_entry, turn=1)
+activate TS
+TS -> DB : INSERT INTO llm_token_log\n(session_id, turn_number=1)
+deactivate TS
+
+GW -> Bus : publish("session.turn.completed",\n{session_id, turn: 1})
+
+GW --> Agent : LLM Response\nHeader: X-Session-Id: sess-abc-123
+deactivate GW
+
+== Tours suivants ==
+
+Agent -> GW : POST /v1/gateway/chat/completions\nHeader: X-Session-Id: sess-abc-123
+activate GW
+
+GW -> GW : process_llm_call(request)
+GW -> TS : add_turn(session_id, log_entry, turn=2)
+activate TS
+TS -> DB : INSERT INTO llm_token_log\n(session_id, turn_number=2)
+TS -> DB : UPDATE llm_session\nSET total_turns=2, total_tokens+=N
+deactivate TS
+
+GW -> Bus : publish("session.turn.completed",\n{session_id, turn: 2})
+
+GW --> Agent : LLM Response
+deactivate GW
+
+== Fermeture de session ==
+
+Agent -> GW : POST /v1/gateway/sessions/close\nHeader: X-Session-Id: sess-abc-123
+activate GW
+
+GW -> TS : close_session(session_id)
+activate TS
+TS -> DB : UPDATE llm_session\nSET status='COMPLETED',\nended_at=NOW()
+activate DB
+DB --> TS : OK
+deactivate DB
+TS --> GW : session_summary
+deactivate TS
+
+GW -> Bus : publish("session.completed",\n{session_id, total_turns, total_cost})
+GW --> Agent : 200 OK {session_summary}
+deactivate GW
+
+== Consultation waterfall ==
+
+UI -> TS : get_waterfall(session_id)
+activate TS
+TS -> DB : SELECT * FROM llm_token_log\nWHERE session_id = 'sess-abc-123'\nORDER BY turn_number
+activate DB
+DB --> TS : token_logs[2]
+deactivate DB
+TS --> UI : WaterfallView {\n  turns, latencies,\n  tokens_per_turn\n}
+deactivate TS
+
+@enduml

@@ -56,12 +56,19 @@ class TenantOverviewItem(BaseModel):
     budget_risk: TenantBudgetRisk
 
 
+class DailyCostPoint(BaseModel):
+    date: str
+    total_cost_usd: str
+    total_tokens: int
+    total_calls: int
+
 class ExecutiveOverviewSummary(BaseModel):
     total_tenants: int
     total_cost_usd: str
     tenants_at_risk: int
     active_anomalies: int
     critical_anomalies: int
+    daily_trend: list[DailyCostPoint] = []
 
 
 class ExecutiveOverviewResponse(BaseModel):
@@ -74,13 +81,6 @@ class ExecutiveOverviewResponse(BaseModel):
 # ============================================================
 # TENANT DEEP-DIVE
 # ============================================================
-
-class DailyCostPoint(BaseModel):
-    date: str
-    total_cost_usd: str
-    total_tokens: int
-    total_calls: int
-
 
 class ModelCostItem(BaseModel):
     model: str

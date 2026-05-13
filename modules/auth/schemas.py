@@ -59,6 +59,60 @@ class UserCreateRequest(BaseModel):
         return v
 
 
+class UserUpdateRequest(BaseModel):
+    """Partial update for an existing user — super_admin only."""
+    email:     Optional[str] = None
+    role:      Optional[str] = None
+    tenant_id: Optional[str] = None
+    is_active: Optional[bool] = None
+
+    @field_validator("role")
+    @classmethod
+    def validate_role(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in VALID_ROLES:
+            raise ValueError(f"role must be one of: {', '.join(sorted(VALID_ROLES))}")
+        return v
+
+
+class AdminResetPasswordRequest(BaseModel):
+    """Admin-initiated password reset — super_admin only."""
+    new_password: str = Field(..., min_length=8, max_length=200)
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_password_strength(cls, v: str) -> str:
+        if not re.search(r"[A-Z]", v):
+            raise ValueError("Password must contain at least one uppercase letter")
+        if not re.search(r"[0-9]", v):
+            raise ValueError("Password must contain at least one digit")
+        return v
+
+
+class UserListResponse(BaseModel):
+    """Paginated list of users with metadata."""
+    users: list['UserResponse']
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
+
+class TenantSignupRequest(BaseModel):
+    username: str = Field(..., min_length=3, max_length=100)
+    password: str = Field(..., min_length=8, max_length=200)
+    tenant_name: str = Field(..., min_length=3, max_length=100)
+    email: Optional[str] = None
+
+    @field_validator("password")
+    @classmethod
+    def validate_password_strength(cls, v: str) -> str:
+        if not re.search(r"[A-Z]", v):
+            raise ValueError("Password must contain at least one uppercase letter")
+        if not re.search(r"[0-9]", v):
+            raise ValueError("Password must contain at least one digit")
+        return v
+
+
 class ChangePasswordRequest(BaseModel):
     current_password: str = Field(..., min_length=6)
     new_password:     str = Field(..., min_length=8)
@@ -82,6 +136,7 @@ class UserResponse(BaseModel):
     is_active:     bool
     created_at:    datetime
     last_login_at: Optional[datetime] = None
+    last_activity_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
 
@@ -184,3 +239,95 @@ class CurrentUser(BaseModel):
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="super_admin role is required for this action.",
             )
+
+
+# ============================================================
+# VIRTUAL KEYS (per-team API keys with budgets & permissions)
+# ============================================================
+
+class VirtualKeyCreateRequest(BaseModel):
+    """Request body for POST /v1/auth/virtual-keys."""
+    name: str = Field(
+        ..., min_length=3, max_length=100,
+        description="Human-readable label, e.g. 'ML Pipeline - Production'",
+    )
+    tenant_id: Optional[str] = Field(
+        default=None,
+        description="Scope to a specific tenant. tenant_admin keys are auto-scoped.",
+    )
+    environment: str = Field(
+        default="live",
+        description="Key environment: 'live' or 'test'",
+    )
+    allowed_models: Optional[list[str]] = Field(
+        default=None,
+        description="Restrict to specific models. NULL = all models. e.g. ['gpt-4o-mini', 'claude-3-haiku']",
+    )
+    budget_usd: Optional[float] = Field(
+        default=None, ge=0,
+        description="Monthly budget cap in USD. NULL = unlimited.",
+    )
+    rate_limit_rpm: Optional[int] = Field(
+        default=None, ge=1, le=10000,
+        description="Max requests per minute. NULL = no rate limit.",
+    )
+    expires_days: Optional[int] = Field(
+        default=365, ge=1, le=730,
+        description="Key validity in days. Default 365.",
+    )
+
+    @field_validator("environment")
+    @classmethod
+    def validate_environment(cls, v: str) -> str:
+        if v not in ("live", "test"):
+            raise ValueError("environment must be 'live' or 'test'")
+        return v
+
+
+class VirtualKeyResponse(BaseModel):
+    """Returned when listing virtual keys — raw key is never included."""
+    id: str
+    name: str
+    key_prefix: str
+    tenant_id: str
+    environment: str
+    allowed_models: Optional[list[str]] = None
+    budget_usd: Optional[float] = None
+    budget_used_usd: float = 0.0
+    rate_limit_rpm: Optional[int] = None
+    is_active: bool
+    created_at: datetime
+    last_used_at: Optional[datetime] = None
+    expires_at: Optional[datetime] = None
+    revoked_at: Optional[datetime] = None
+
+    model_config = {"from_attributes": True}
+
+    @field_validator("allowed_models", mode="before")
+    @classmethod
+    def parse_allowed_models(cls, v):
+        """Convert comma-separated string from DB to list."""
+        if v is None:
+            return None
+        if isinstance(v, str):
+            models = [m.strip() for m in v.split(",") if m.strip()]
+            return models if models else None
+        return v
+
+
+class VirtualKeyCreatedResponse(VirtualKeyResponse):
+    """Returned ONCE at creation — includes the raw key. Store it securely."""
+    raw_key: str
+
+
+class VirtualKeyListResponse(BaseModel):
+    """Paginated list of virtual keys."""
+    keys: list[VirtualKeyResponse]
+    total: int
+    tenant_id: Optional[str] = None
+
+
+class VirtualKeyRotateResponse(BaseModel):
+    """Returned when rotating a virtual key."""
+    old_key_id: str
+    new_key: VirtualKeyCreatedResponse

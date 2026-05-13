@@ -127,6 +127,21 @@ class LogCallRequest(BaseModel):
         None,
         description="Arbitrary key-value metadata for this call",
     )
+    prompt_text: Optional[str] = Field(
+        None,
+        max_length=50000,
+        description="The prompt/input text sent to the LLM (stored encrypted at rest)",
+    )
+    completion_text: Optional[str] = Field(
+        None,
+        max_length=100000,
+        description="The completion/response text from the LLM (stored encrypted at rest)",
+    )
+    session_id: Optional[str] = Field(
+        None,
+        max_length=100,
+        description="Client session ID to group calls into a trace (X-Session-Id header)",
+    )
 
     @field_validator("status")
     @classmethod
@@ -231,6 +246,53 @@ class HealthResponse(BaseModel):
 class ErrorResponse(BaseModel):
     """Standard error response shape for all 4xx and 5xx responses."""
     error: str
+    detail: Optional[str] = None
+    request_id: Optional[str] = None
+
+
+# ============================================================
+# REQUEST LOG VIEWER (Prompt Inspector)
+# ============================================================
+
+class RequestLogEntry(BaseModel):
+    """Single log entry for the Request Inspector UI."""
+    id: uuid.UUID
+    trace_id: Optional[str] = None
+    request_id: Optional[str] = None
+    tenant_id: str
+    agent_id: Optional[str] = None
+    user_id: Optional[str] = None
+    model: str
+    provider: str
+    input_tokens: int
+    output_tokens: int
+    total_tokens: int
+    cost_usd: str
+    duration_ms: Optional[int] = None
+    status: str
+    error_message: Optional[str] = None
+    prompt_text: Optional[str] = None
+    completion_text: Optional[str] = None
+    pii_redacted: bool = False
+    created_at: datetime
+    metadata: Optional[dict] = None
+
+    model_config = {"from_attributes": True}
+
+
+class RequestLogSearchResponse(BaseModel):
+    """Paginated response for the request log search endpoint."""
+    logs: list[RequestLogEntry]
+    total: int
+    page: int
+    page_size: int
+    has_more: bool
+
+
+class RequestLogDetailResponse(BaseModel):
+    """Detailed view of a single request — includes prompt and completion."""
+    log: RequestLogEntry
+    curl_command: Optional[str] = None
     detail: Optional[str] = None
     request_id: Optional[str] = None
 

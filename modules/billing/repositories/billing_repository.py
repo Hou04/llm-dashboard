@@ -260,29 +260,44 @@ class BillingRepository:
         self, tenant_id: str, year_month: int
     ) -> Optional[dict]:
         """
-        Read consolidated usage from llm_cost_monthly (M2 output).
+        Compute monthly usage dynamically from llm_token_log.
 
-        This is the frozen foundation for billing.
-        If no M2 data exists, returns None — billing cannot proceed.
+        100% dynamic — no pre-aggregation table needed.
+        Aggregates directly from the raw telemetry logs for the given month.
         """
+        year  = year_month // 100
+        month = year_month % 100
+
         result = await self.session.execute(
             text("""
                 SELECT
-                    tenant_id,
-                    year_month,
-                    total_calls,
-                    successful_calls,
-                    failed_calls,
-                    total_tokens,
-                    total_cost_usd
-                FROM llm_cost_monthly
+                    :tenant_id                                          AS tenant_id,
+                    :year_month                                         AS year_month,
+                    COUNT(*)::int                                       AS total_calls,
+                    COUNT(*) FILTER (WHERE status = 'success')::int     AS successful_calls,
+                    COUNT(*) FILTER (WHERE status != 'success')::int    AS failed_calls,
+                    COALESCE(SUM(total_tokens), 0)::bigint              AS total_tokens,
+                    COALESCE(ROUND(SUM(cost_usd)::numeric, 6), 0)      AS total_cost_usd,
+                    (
+                        SELECT module 
+                        FROM llm_token_log 
+                        WHERE tenant_id = :tenant_id 
+                          AND EXTRACT(YEAR FROM created_at) = :year 
+                          AND EXTRACT(MONTH FROM created_at) = :month 
+                          AND module IS NOT NULL
+                        GROUP BY module 
+                        ORDER BY COUNT(*) DESC 
+                        LIMIT 1
+                    ) AS primary_module
+                FROM llm_token_log
                 WHERE tenant_id = :tenant_id
-                  AND year_month = :year_month
+                  AND EXTRACT(YEAR  FROM created_at) = :year
+                  AND EXTRACT(MONTH FROM created_at) = :month
             """),
-            {"tenant_id": tenant_id, "year_month": year_month},
+            {"tenant_id": tenant_id, "year_month": year_month, "year": year, "month": month},
         )
         row = result.fetchone()
-        if row is None:
+        if row is None or int(row.total_calls or 0) == 0:
             return None
         return {
             "tenant_id":       row.tenant_id,
@@ -292,6 +307,7 @@ class BillingRepository:
             "failed_calls":    int(row.failed_calls or 0),
             "total_tokens":    int(row.total_tokens or 0),
             "total_cost_usd":  float(row.total_cost_usd or 0),
+            "primary_module":  row.primary_module or "AI Platform",
         }
 
     async def get_model_breakdown_for_month(

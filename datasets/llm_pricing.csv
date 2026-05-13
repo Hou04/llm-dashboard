@@ -1,4 +1,0 @@
-model,input_price_per_1k,output_price_per_1k,valid_from
-gpt-4,0.01,0.03,2025-01-01
-gpt-3.5,0.0005,0.0015,2025-01-01
-mistral,0.0003,0.0008,2025-01-01

@@ -1,0 +1,94 @@
+@startuml ch5_seq_forecast
+' ============================================================
+' CHAPITRE 5 — Diagramme de Séquence — Prévision Budgétaire
+' Figure 5.x : Pipeline de prévision à 3 scénarios
+' ============================================================
+
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+skinparam roundcorner 5
+skinparam sequenceArrowThickness 2
+
+skinparam sequence {
+  ParticipantBackgroundColor #2C3E50
+  ParticipantFontColor #FFFFFF
+  ParticipantBorderColor #1A252F
+  LifeLineBackgroundColor #E8E8E8
+  ArrowColor #2C3E50
+}
+
+title <size:16><b>Diagramme de Séquence — Prévision Budgétaire</b></size>
+
+actor "Administrateur\nTenant" as Admin
+participant "Frontend\nNext.js" as UI
+participant "API REST\nFastAPI" as API
+participant "ForecastService" as FS
+database "PostgreSQL\nllm_cost_daily" as DB
+participant "RiskAssessor" as RA
+
+Admin -> UI : Accéder à la page Prévisions
+activate UI
+
+UI -> API : GET /v1/forecasting/{tenant_id}\n?horizon=30
+activate API
+
+API -> FS : forecast(tenant_id, 30)
+activate FS
+
+FS -> DB : get_daily_costs(tenant_id, 90j)
+activate DB
+DB --> FS : daily_costs[90]
+deactivate DB
+
+note right of FS
+  **Calcul de la tendance**
+  trend = régression linéaire
+  sur les 90 derniers jours
+  growth_rate = Δcoût / Δjours
+end note
+
+FS -> FS : _compute_trend(daily_costs)
+FS -> FS : _compute_growth_rate(daily_costs)
+
+note right of FS
+  **3 Scénarios de projection**
+  Optimiste : growth × 0.5
+  Moyen : growth × 1.0
+  Pessimiste : growth × 1.5
+end note
+
+FS -> FS : _project(trend, rate×0.5, 30)\n→ optimistic_cost
+FS -> FS : _project(trend, rate×1.0, 30)\n→ baseline_cost
+FS -> FS : _project(trend, rate×1.5, 30)\n→ pessimistic_cost
+
+FS -> RA : assess_budget_risks(pessimistic, tenant_id)
+activate RA
+
+RA -> DB : get_contract_budget(tenant_id)
+activate DB
+DB --> RA : budget_limit
+deactivate DB
+
+alt pessimistic > budget_limit
+  RA --> FS : risk_level = "HIGH"\ndays_to_exceed = N
+else pessimistic < budget_limit
+  RA --> FS : risk_level = "LOW"
+end
+deactivate RA
+
+FS -> DB : save(ForecastResult)
+activate DB
+DB --> FS : forecast_id
+deactivate DB
+
+FS --> API : ForecastResult
+deactivate FS
+
+API --> UI : JSON { optimistic, baseline,\npessimistic, risks }
+deactivate API
+
+UI --> Admin : Graphique 3 courbes\n+ Alertes de risque
+deactivate UI
+
+@enduml

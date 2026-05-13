@@ -1,0 +1,95 @@
+@startuml ch3_deployment_docker
+' ============================================================
+' CHAPITRE 3 — Diagramme de Déploiement Docker
+' Figure 3.x : Architecture de déploiement Docker Compose
+' ============================================================
+
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+skinparam roundcorner 8
+skinparam linetype ortho
+
+skinparam node {
+  BackgroundColor #ECF0F1
+  BorderColor #2C3E50
+  FontColor #2C3E50
+}
+
+skinparam component {
+  BackgroundColor #3498DB
+  FontColor #FFFFFF
+  BorderColor #2980B9
+}
+
+skinparam database {
+  BackgroundColor #27AE60
+  FontColor #FFFFFF
+  BorderColor #1E8449
+}
+
+title <size:16><b>Diagramme de Déploiement — Docker Compose</b></size>
+
+cloud "Internet" as INET {
+}
+
+node "Docker Host" as HOST {
+
+  node "llm-net (bridge network)" as NET {
+
+    component "Nginx\n(nginx:alpine)" as NGINX #E74C3C;text:white {
+      [Port 80/443]
+      [TLS Termination]
+      [Rate Limiting]
+    }
+
+    component "API Server\n(FastAPI / Uvicorn)" as API #3498DB;text:white {
+      [Port 8000]
+      [11 Modules]
+      [Health Check]
+    }
+
+    component "Celery Worker\n(prefork, 2 workers)" as WORKER #9B59B6;text:white {
+      [Tâches asynchrones]
+      [Agrégation]
+      [Détection anomalies]
+    }
+
+    component "Celery Beat\n(Scheduler)" as BEAT #8E44AD;text:white {
+      [Tâches périodiques]
+      [Cron schedules]
+    }
+
+    database "PostgreSQL 15\n+ TimescaleDB\n+ pgvector" as PG #27AE60;text:white {
+      [Port 5432]
+      [Volume: postgres_data]
+    }
+
+    database "Redis 7\n(Alpine)" as REDIS #E67E22;text:white {
+      [Port 6379]
+      [DB0: Broker Celery]
+      [DB1: Cache applicatif]
+    }
+  }
+}
+
+INET --> NGINX : "HTTPS"
+NGINX --> API : "Proxy Pass\n/v1/*"
+API --> PG : "asyncpg"
+API --> REDIS : "Cache\n+ Quotas"
+API --> WORKER : "Celery Tasks\n(via Redis)"
+BEAT --> WORKER : "Scheduled\nTasks"
+WORKER --> PG : "asyncpg"
+WORKER --> REDIS : "Broker"
+
+note right of NGINX
+  Profil "production"
+  uniquement
+end note
+
+note bottom of PG
+  Hypertable: llm_token_log
+  Extensions: timescaledb, pgvector
+end note
+
+@enduml

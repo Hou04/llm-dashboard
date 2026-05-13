@@ -1,0 +1,58 @@
+@startuml ch6_state_invoice
+' ============================================================
+' CHAPITRE 6 — Diagramme d'États — Cycle de Vie Facture
+' Figure 6.x : Machine à états d'une facture
+' ============================================================
+
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam roundcorner 10
+
+skinparam state {
+  BackgroundColor #ECF0F1
+  BorderColor #2C3E50
+  FontColor #2C3E50
+}
+
+title <size:16><b>Diagramme d'États — Cycle de Vie d'une Facture</b></size>
+
+[*] --> DRAFT : Génération\nautomatique\n(Celery Beat)
+
+state DRAFT #F9E79F {
+}
+state FINALIZED #AED6F1 {
+}
+state SENT #85C1E9 {
+}
+state PAID #82E0AA {
+}
+state OVERDUE #F5B7B1 {
+}
+state CANCELLED #D5DBDB {
+}
+
+DRAFT --> FINALIZED : finaliser()\nVérification montants
+DRAFT --> CANCELLED : annuler()
+FINALIZED --> SENT : envoyer()\nNotification tenant
+FINALIZED --> CANCELLED : annuler()
+SENT --> PAID : marquer_payée()\nPaiement reçu
+SENT --> OVERDUE : [date_actuelle > due_date]\nÉchéance dépassée
+OVERDUE --> PAID : marquer_payée()\nPaiement tardif
+OVERDUE --> CANCELLED : annuler()\nAbandon
+
+PAID --> [*]
+CANCELLED --> [*]
+
+note right of SENT
+  Délai de paiement :
+  30 jours après envoi
+end note
+
+note left of DRAFT
+  Les lignes de facture
+  sont calculées à partir
+  de llm_cost_monthly
+end note
+
+@enduml

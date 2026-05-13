@@ -81,6 +81,30 @@ class DashboardService:
             if t["anomaly_status"]["severity"] == "critical"
         )
  
+        # Aggregate daily trend globally
+        global_trend_map = {}
+        for t in tenant_items:
+            for day in t.get("_daily_trend", []):
+                d = day["date"]
+                if d not in global_trend_map:
+                    global_trend_map[d] = {"date": d, "total_cost_usd": 0.0, "total_tokens": 0, "total_calls": 0}
+                global_trend_map[d]["total_cost_usd"] += float(day["total_cost_usd"])
+                global_trend_map[d]["total_tokens"] += day["total_tokens"]
+                global_trend_map[d]["total_calls"] += day["total_calls"]
+                
+        daily_trend_list = []
+        for d in sorted(global_trend_map.keys()):
+            pt = global_trend_map[d]
+            daily_trend_list.append({
+                "date": pt["date"],
+                "total_cost_usd": str(round(pt["total_cost_usd"], 4)),
+                "total_tokens": pt["total_tokens"],
+                "total_calls": pt["total_calls"]
+            })
+            
+        for t in tenant_items:
+            t.pop("_daily_trend", None)
+
         return {
             "generated_at": now,
             "period_days": period_days,
@@ -91,6 +115,7 @@ class DashboardService:
                 "tenants_at_risk": tenants_at_risk,
                 "active_anomalies": active_anomalies,
                 "critical_anomalies": critical_anomalies,
+                "daily_trend": daily_trend_list,
             },
         }
  
@@ -106,6 +131,7 @@ class DashboardService:
         anomalies = await self._safe_get_anomalies(tenant_id)
         forecast_rows = await self._safe_get_forecast_rows(tenant_id)
         risks = await self._safe_get_budget_risks(tenant_id)
+        daily_trend = await self._safe_get_daily_trend(tenant_id, from_dt, to_dt)
  
         current_cost = float(cost_current.get("total_cost_usd", 0))
         prior_cost = float(cost_prior.get("total_cost_usd", 0))
@@ -163,6 +189,7 @@ class DashboardService:
                 "risk_type": risk_item["risk_type"] if risk_item else None,
                 "urgency": urgency(risk_item["days_until_exhaustion"]) if risk_item else None,
             },
+            "_daily_trend": daily_trend,
         }
  
     # ================================================================
@@ -447,10 +474,10 @@ class DashboardService:
     # ================================================================
  
     async def _discover_tenants(self) -> list[str]:
-        """Dynamically discover tenants from the new master database table."""
+        """Dynamically discover tenants from the telemetry logs, ensuring it is 100% data-driven."""
         try:
             result = await self.session.execute(
-                text("SELECT tenant_id FROM llm_tenants ORDER BY tenant_id")
+                text("SELECT DISTINCT tenant_id FROM llm_token_log WHERE tenant_id IS NOT NULL ORDER BY tenant_id")
             )
             tenants = [row[0] for row in result.all()]
             return tenants if tenants else []

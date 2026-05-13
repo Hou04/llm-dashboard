@@ -1,0 +1,275 @@
+/* ============================================================
+   Sidebar — Modern clean navigation
+   ============================================================ */
+
+.sidebar {
+  width: var(--sidebar-w);
+  height: 100vh;
+  position: sticky;
+  left: 0;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--border);
+  padding: 16px 10px;
+  transition: width 0.2s var(--ease);
+  overflow: hidden;
+}
+
+/* ── Logo ── */
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 6px 20px;
+  position: relative;
+}
+
+.logoMark {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--r2);
+  background: var(--t1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--bg);
+  letter-spacing: -0.04em;
+  flex-shrink: 0;
+}
+
+.logoTitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--t1);
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.logoSub {
+  font-size: 10px;
+  color: var(--t3);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 500;
+  margin-top: 1px;
+}
+
+/* ── Navigation ── */
+.nav {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;
+  padding-top: 4px;
+}
+
+.nav::-webkit-scrollbar { display: none; }
+
+.navGroup { display: none; }
+
+.navDivider {
+  height: 1px;
+  background: var(--border);
+  margin: 8px 10px;
+}
+
+/* ── Section Label ── */
+.sectionLabel {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--t3);
+  padding: 14px 10px 5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+/* ── Nav Button ── */
+.navBtn {
+  width: 100%;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: var(--r2);
+  border: none;
+  background: transparent;
+  color: var(--t2);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  position: relative;
+  transition: all 0.12s var(--ease);
+  padding: 0 10px;
+  text-align: left;
+}
+
+.navBtn:hover {
+  background: var(--bg2);
+  color: var(--t1);
+}
+
+.navBtn.active {
+  background: var(--acc-dim);
+  color: var(--acc);
+  font-weight: 600;
+}
+
+/* Icon inside button */
+.navIcon {
+  font-size: 15px;
+  line-height: 1;
+  width: 22px;
+  text-align: center;
+  flex-shrink: 0;
+  opacity: 0.7;
+  transition: opacity 0.12s;
+}
+
+.navBtn:hover .navIcon,
+.navBtn.active .navIcon {
+  opacity: 1;
+}
+
+/* Nav text label */
+.navLabel {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── Tooltip ── */
+.navBtn::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  left: calc(100% + 8px);
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 5px 12px;
+  background: var(--t1);
+  border-radius: var(--r);
+  color: var(--bg);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s;
+  z-index: 200;
+  display: none;
+}
+
+/* Badge */
+.navBadge {
+  min-width: 18px;
+  height: 18px;
+  border-radius: 100px;
+  background: var(--red);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 5px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+/* ── Footer ── */
+.sidebarFooter {
+  padding: 10px 6px 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-top: 1px solid var(--border);
+  margin-top: auto;
+}
+
+.healthRow {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  font-size: 11px;
+  color: var(--t3);
+  gap: 6px;
+  padding: 6px 10px;
+}
+
+.healthLabel {
+  font-size: 11px;
+  color: var(--t3);
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.dotOk {
+  background: var(--green);
+  box-shadow: 0 0 6px rgba(34, 197, 94, 0.4);
+}
+
+.dotErr {
+  background: var(--red);
+  box-shadow: 0 0 6px rgba(239, 68, 68, 0.4);
+}
+
+/* Tenant badge */
+.tenantBadge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+}
+
+.tenantBadgeIcon { font-size: 14px; }
+.tenantBadgeLabel { font-size: 11px; color: var(--t3); }
+.tenantBadgeValue { font-size: 12px; font-weight: 500; color: var(--t2); }
+
+/* ── Locale Switcher ── */
+.localeSwitcher {
+  width: 100%;
+  padding: 8px 10px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--r2);
+  color: var(--t2);
+  font-size: 11px;
+  font-family: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s var(--ease);
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg width='8' height='5' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l3 3 3-3' stroke='%2371717a' fill='none' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+}
+
+.localeSwitcher:hover {
+  background-color: var(--bg2);
+  border-color: var(--border);
+  color: var(--t1);
+}
+
+.localeSwitcher:focus {
+  outline: none;
+  border-color: var(--border-focus);
+}
+
+/* ── Mobile ── */
+@media (max-width: 768px) {
+  .sidebar { transform: translateX(-100%); }
+  .sidebar.open { transform: translateX(0); }
+}

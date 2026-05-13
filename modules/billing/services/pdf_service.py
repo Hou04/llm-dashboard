@@ -104,7 +104,7 @@ class InvoicePDFService:
         elements.append(Spacer(1, 8 * mm))
 
         # ── 2. Invoice metadata ───────────────────────────────────
-        elements.extend(self._build_metadata_block(inv))
+        elements.extend(self._build_metadata_block(inv, report))
         elements.append(Spacer(1, 6 * mm))
 
         # ── 3. Line items table ───────────────────────────────────
@@ -182,11 +182,22 @@ class InvoicePDFService:
 
         return elements
 
-    def _build_metadata_block(self, inv: dict) -> list:
+    def _build_metadata_block(self, inv: dict, report: Optional[dict] = None) -> list:
         """Two-column block: billing-to and invoice details."""
         elements = []
         month_name = self._month_name(inv.get("year_month", 0))
         status = inv.get("status", "draft").upper()
+
+        product_name = "AI Platform"
+        if report and isinstance(report.get("sections"), dict):
+            product_name = report["sections"].get("product_name", "AI Platform")
+        elif report and isinstance(report.get("sections"), str):
+            import json
+            try:
+                sections = json.loads(report["sections"])
+                product_name = sections.get("product_name", "AI Platform")
+            except Exception:
+                pass
 
         # Status colour
         status_color = GREEN if status == "FINALIZED" else AMBER
@@ -194,6 +205,7 @@ class InvoicePDFService:
         left_content = (
             f"<b>Billed To:</b><br/>"
             f"<b>{inv.get('tenant_id', 'N/A')}</b><br/>"
+            f"Product: {product_name}<br/>"
             f"Billing Period: {month_name}<br/>"
         )
         finalized_at = inv.get("finalized_at")

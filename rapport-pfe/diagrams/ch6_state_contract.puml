@@ -1,0 +1,61 @@
+@startuml ch6_state_contract
+' ============================================================
+' CHAPITRE 6 — Diagramme d'États — Cycle de Vie Contrat
+' Figure 6.x : Machine à états du contrat de facturation
+' ============================================================
+
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam roundcorner 10
+
+skinparam state {
+  BackgroundColor #ECF0F1
+  BorderColor #2C3E50
+  FontColor #2C3E50
+}
+
+title <size:16><b>Diagramme d'États — Cycle de Vie d'un Contrat</b></size>
+
+[*] --> DRAFT : Création\npar Super Admin
+
+state DRAFT #F9E79F {
+}
+state PROPOSED #F5CBA7 {
+}
+state ACCEPTED #ABEBC6 {
+}
+state ACTIVE #82E0AA {
+}
+state EXPIRED #D5DBDB {
+}
+state CANCELLED #F5B7B1 {
+}
+
+DRAFT --> PROPOSED : proposer()\nEnvoi au tenant
+PROPOSED --> ACCEPTED : accepter()\nValidation tenant
+PROPOSED --> DRAFT : modifier()\nRetour brouillon
+PROPOSED --> CANCELLED : annuler()
+ACCEPTED --> ACTIVE : activer()\nDébut de contrat
+ACCEPTED --> CANCELLED : annuler()
+ACTIVE --> EXPIRED : expirer()\nDate de fin atteinte
+ACTIVE --> CANCELLED : résilier()\nRésiliation anticipée
+DRAFT --> CANCELLED : supprimer()
+
+EXPIRED --> [*]
+CANCELLED --> [*]
+
+note right of ACTIVE
+  État principal :
+  Les factures sont
+  générées uniquement
+  pour les contrats ACTIVE
+end note
+
+note left of DRAFT
+  Le Super Admin peut
+  modifier les conditions
+  tarifaires à cette étape
+end note
+
+@enduml

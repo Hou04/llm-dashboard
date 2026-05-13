@@ -16,7 +16,7 @@ from modules.detection.schemas import (
 )
 from modules.detection.services import DetectionService
 from modules.detection.services.explainer_service import ExplainerService
-from modules.auth.dependencies import require_tenant_viewer, require_tenant_admin
+from modules.auth.dependencies import require_tenant_viewer, require_tenant_admin, require_super_admin
 from modules.auth.schemas import CurrentUser
 
 logger = logging.getLogger(__name__)
@@ -141,7 +141,7 @@ async def get_all_anomalies(
     skip: int = Query(default=0, ge=0, description="Number of items to skip (pagination offset)"),
     limit: int = Query(default=50, ge=1, le=200, description="Max items to return"),
     service: DetectionService = Depends(get_detection_service),
-    _user: CurrentUser = Depends(require_tenant_viewer),
+    _user: CurrentUser = Depends(require_super_admin),
 ) -> AnomalyListResponse:
     anomalies = await service.get_all_recent_anomalies(
         hours=hours, severity=severity

@@ -4,7 +4,7 @@ BillingService — M10 Agent.
 Pure financial logic. Zero LLM calls. Deterministic and auditable.
 
 The billing engine:
-  1. Reads frozen usage data from llm_cost_monthly (M2 output)
+  1. Computes usage dynamically from llm_token_log (real-time)
   2. Applies the tenant's contract rules (forfait, overage rate)
   3. Generates line items — one charge per model, plus base fee
   4. Calculates the total invoice amount
@@ -80,7 +80,7 @@ class BillingService:
         Returns a summary dict with the billing record and line items.
 
         Flow:
-          1. Read usage from llm_cost_monthly (M2 frozen data)
+          1. Compute usage dynamically from llm_token_log
           2. Apply contract rules → calculate amounts
           3. Generate line items (one per model + base fee)
           4. Save billing record
@@ -88,26 +88,36 @@ class BillingService:
           6. Generate client report
           7. Optionally finalize
         """
-        # Step 1: read raw usage from M2
+        # Step 1: Compute usage dynamically from raw logs
         usage = await self.repo.get_monthly_usage(tenant_id, year_month)
 
         if usage is None:
-            logger.warning(
-                f"No M2 data for {tenant_id} month {year_month}. "
-                "Run the M2 backfill script first."
-            )
+            logger.warning(f"No usage data for {tenant_id} month {year_month}.")
             return {
                 "success": False,
                 "error": (
-                    f"M2 Usage data not found for {tenant_id} month {year_month}. "
-                    "Invoices require monthly cost rollups. "
-                    "Execute: pipenv run python scripts/backfill_costs.py"
+                    f"No API usage data found for {tenant_id} in month {year_month}. "
+                    "Invoices are generated dynamically from real API traffic."
                 ),
             }
 
-        # Step 2: apply contract rules (loaded from DB, not hardcoded)
-        contract  = await self.contract_repo.get_contract_dict(tenant_id)
-        amounts   = self._apply_contract(usage, contract)
+        # Step 2: Apply contract rules (loaded from DB)
+        # ENFORCEMENT: Only generate invoices if contract is ACTIVE
+        contract_obj = await self.contract_repo.get_contract(tenant_id)
+        if not contract_obj:
+            return {
+                "success": False,
+                "error": "No contract found for this tenant. Please create a contract first.",
+            }
+        
+        if contract_obj.status != "active":
+            return {
+                "success": False,
+                "error": f"Contract is currently '{contract_obj.status}'. Invoices can only be generated for 'active' contracts. Please approve the contract in the dashboard.",
+            }
+
+        contract = await self.contract_repo.get_contract_dict(tenant_id)
+        amounts = self._apply_contract(usage, contract)
 
         # Step 3: get model breakdown for line items
         model_breakdown = await self.repo.get_model_breakdown_for_month(
@@ -466,6 +476,8 @@ class BillingService:
         """
         month_name = self._month_name(billing.year_month)
         tenant_id  = billing.tenant_id
+        product    = usage.get("primary_module", "AI Platform")
+        product_formatted = product.replace("_", " ")
 
         # Forfait usage percentage
         if contract["forfait_tokens"] > 0:
@@ -490,7 +502,7 @@ class BillingService:
             )
 
         executive_summary = (
-            f"Your AI platform usage for {month_name}: "
+            f"Your {product_formatted} usage for {month_name}: "
             f"{usage['total_tokens']:,} tokens consumed, "
             f"{usage['total_calls']:,} API calls. "
             f"Total invoice: ${amounts['total_billed_usd']:.2f}. "
@@ -501,9 +513,10 @@ class BillingService:
             "tenant_id":        tenant_id,
             "year_month":       billing.year_month,
             "billing_id":       billing.id,
-            "report_title":     f"AI Platform Report — {tenant_id} — {month_name}",
+            "report_title":     f"{product_formatted} Report — {tenant_id} — {month_name}",
             "executive_summary": executive_summary,
             "sections": {
+                "product_name":  product_formatted,
                 "usage_summary": {
                     "total_tokens":  usage["total_tokens"],
                     "total_calls":   usage["total_calls"],
@@ -528,16 +541,19 @@ class BillingService:
     async def _discover_billable_tenants(self, year_month: int) -> list[str]:
         """
         Dynamically discover tenants that have usage data for the specified month.
-        This replaces the hardcoded TENANT_CONTRACTS list.
+        Queries llm_token_log directly — no pre-aggregation needed.
         """
         from sqlalchemy import text
+        year  = year_month // 100
+        month = year_month % 100
         result = await self.session.execute(
             text("""
                 SELECT DISTINCT tenant_id
-                FROM llm_cost_monthly
-                WHERE year_month = :year_month
+                FROM llm_token_log
+                WHERE EXTRACT(YEAR  FROM created_at) = :year
+                  AND EXTRACT(MONTH FROM created_at) = :month
             """),
-            {"year_month": year_month}
+            {"year": year, "month": month}
         )
         return [row[0] for row in result.all()]
 
@@ -548,3 +564,52 @@ class BillingService:
         year  = year_month // 100
         month = year_month % 100
         return f"{calendar.month_name[month]} {year}"
+
+    async def generate_all_for_month(self, year_month: int, finalize: bool = False) -> dict:
+        """
+        Process all billable tenants for a given month.
+        Used by automated background tasks.
+        """
+        tenants = await self._discover_billable_tenants(year_month)
+        succeeded = 0
+        failed = 0
+        results = []
+
+        for tenant_id in tenants:
+            try:
+                res = await self.generate_monthly_invoice(tenant_id, year_month, finalize=finalize)
+                if res.get("success", True):
+                    succeeded += 1
+                else:
+                    failed += 1
+                results.append({"tenant_id": tenant_id, "success": res.get("success", True)})
+            except Exception as e:
+                logger.error(f"Failed to generate invoice for {tenant_id}: {str(e)}")
+                failed += 1
+                results.append({"tenant_id": tenant_id, "success": False, "error": str(e)})
+
+        return {
+            "year_month": year_month,
+            "succeeded": succeeded,
+            "failed": failed,
+            "details": results
+        }
+
+    async def finalize_invoice(self, tenant_id: str, year_month: int) -> dict:
+        """
+        Finalize an invoice, locking it from further changes.
+        Sets status='finalized' and timestamps finalized_at.
+        """
+        billing = await self.repo.get_by_tenant_month(tenant_id, year_month)
+        if not billing:
+            return {"success": False, "error": "Invoice not found."}
+        
+        if billing.status == "finalized":
+            return {"success": True, "message": "Invoice was already finalized."}
+
+        billing.status = "finalized"
+        billing.finalized_at = datetime.now(timezone.utc)
+        await self.session.flush()
+        
+        logger.info(f"invoice.finalized tenant={tenant_id} month={year_month}")
+        return {"success": True, "total_billed_usd": str(billing.total_billed_usd)}

@@ -1,0 +1,91 @@
+@startuml ch4_seq_auth
+' ============================================================
+' CHAPITRE 4 — Diagramme de Séquence — Authentification JWT
+' Figure 4.x : Flux d'authentification
+' ============================================================
+
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+skinparam roundcorner 5
+skinparam sequenceArrowThickness 2
+
+skinparam participant {
+  BackgroundColor #3498DB
+  FontColor #FFFFFF
+  BorderColor #2980B9
+}
+
+skinparam database {
+  BackgroundColor #27AE60
+  FontColor #FFFFFF
+  BorderColor #1E8449
+}
+
+title <size:16><b>Diagramme de Séquence — Authentification JWT</b></size>
+
+actor "Client\n(Frontend)" as C #F39C12
+participant "FastAPI\nRouter" as R #3498DB
+participant "AuthService" as S #9B59B6
+database "PostgreSQL" as DB #27AE60
+database "Redis" as RED #E74C3C
+
+== Connexion (Login) ==
+
+C -> R : POST /v1/auth/login\n{email, password}
+activate R
+
+R -> S : authenticate(email, password)
+activate S
+
+S -> DB : get_user_by_email(email)
+activate DB
+DB --> S : LLMAuthUser
+deactivate DB
+
+S -> S : verify_password()\nPBKDF2-SHA256\n(600 000 itérations)
+
+alt Mot de passe valide
+  S -> S : create_access_token()\nJWT HS256 (30 min)
+  S -> S : create_refresh_token()\nJWT HS256 (7 jours)
+  S --> R : TokenPair(access, refresh)
+  deactivate S
+  R --> C : 200 OK\n{access_token, refresh_token,\ntoken_type: "bearer"}
+else Mot de passe invalide
+  S --> R : InvalidCredentialsError
+  R --> C : 401 Unauthorized
+end
+
+deactivate R
+
+== Accès à une ressource protégée ==
+
+C -> R : GET /v1/dashboard/stats\nAuthorization: Bearer <token>
+activate R
+
+R -> R : decode_jwt(token)\nVérifier signature HS256
+
+R -> RED : is_blacklisted(token_jti)?
+activate RED
+RED --> R : false
+deactivate RED
+
+R -> R : check_role_permission()\nRBAC 4 niveaux
+
+R --> C : 200 OK\n{dashboard_data}
+deactivate R
+
+== Déconnexion (Logout) ==
+
+C -> R : POST /v1/auth/logout\nAuthorization: Bearer <token>
+activate R
+
+R -> RED : blacklist_token(jti, ttl=30min)
+activate RED
+RED --> R : OK
+deactivate RED
+
+R --> C : 200 OK\n{message: "Déconnecté"}
+deactivate R
+
+@enduml

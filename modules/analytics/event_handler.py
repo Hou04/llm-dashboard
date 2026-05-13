@@ -78,21 +78,17 @@ async def handle_call_for_aggregation(event: dict) -> None:
             await session.execute(
                 text("""
                     INSERT INTO llm_cost_daily
-                        (tenant_id, model, provider, cost_date,
-                         total_tokens, total_cost_usd, call_count)
+                        (tenant_id, date, total_tokens, total_cost_usd, total_calls)
                     VALUES
-                        (:tenant_id, :model, :provider, :cost_date,
-                         :tokens, :cost, 1)
-                    ON CONFLICT (tenant_id, model, provider, cost_date)
+                        (:tenant_id, :cost_date, :tokens, :cost, 1)
+                    ON CONFLICT (tenant_id, date)
                     DO UPDATE SET
                         total_tokens = llm_cost_daily.total_tokens + EXCLUDED.total_tokens,
                         total_cost_usd = llm_cost_daily.total_cost_usd + EXCLUDED.total_cost_usd,
-                        call_count = llm_cost_daily.call_count + 1
+                        total_calls = llm_cost_daily.total_calls + 1
                 """),
                 {
                     "tenant_id": tenant_id,
-                    "model": model or "unknown",
-                    "provider": provider or "unknown",
                     "cost_date": today,
                     "tokens": total_tokens,
                     "cost": Decimal(str(cost_usd)),

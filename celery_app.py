@@ -28,6 +28,7 @@ app = Celery(
         "modules.analytics.tasks.aggregation",
         "modules.forecasting.tasks.optimization",
         "modules.gateway.tasks",
+        "modules.billing.tasks",
     ],
 )
 
@@ -53,6 +54,11 @@ app.conf.beat_schedule = {
     "monthly-cost-rollup": {
         "task": "modules.analytics.tasks.aggregation.rollup_last_month",
         "schedule": crontab(hour=3, minute=0, day_of_month=1),
+    },
+    # Automated Monthly Billing: runs at 4:00 AM UTC on the 1st of every month
+    "monthly-billing-generation": {
+        "task": "modules.billing.tasks.generate_monthly_drafts",
+        "schedule": crontab(hour=4, minute=0, day_of_month=1),
     },
     # Weekly optimization scan: runs at 4:00 AM UTC every Sunday
     "weekly-optimization-scan": {

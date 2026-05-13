@@ -177,7 +177,7 @@ async def get_forecast(
 async def get_budget_risks(
     max_days: int = Query(default=30, ge=1, le=60),
     service: ForecastingService = Depends(get_forecasting_service),
-    _user: CurrentUser = Depends(require_tenant_viewer),
+    _user: CurrentUser = Depends(require_super_admin),
 ) -> BudgetRiskResponse:
     risks = await service.get_budget_risks(max_days=max_days)
 

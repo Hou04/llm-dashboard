@@ -1,0 +1,223 @@
+/* ============================================================
+   Topbar — Modern header bar
+   ============================================================ */
+
+.topbar {
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  padding: 0 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  position: relative;
+  height: 56px;
+}
+
+.left {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.pageTitle {
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--t1);
+}
+
+.pageMeta {
+  font-size: 12px;
+  color: var(--t3);
+  font-weight: 400;
+}
+
+.right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ── Tenant selector ── */
+.tenantSelect {
+  font-size: 12px;
+  padding: 6px 28px 6px 10px;
+  border-radius: var(--r2);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--t1);
+  font-family: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s var(--ease);
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23a1a1aa'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+}
+
+.tenantSelect:hover {
+  border-color: var(--border2);
+  box-shadow: var(--shadow-xs);
+}
+
+.tenantSelect:focus {
+  outline: none;
+  border-color: var(--acc);
+  box-shadow: var(--shadow-ring);
+}
+
+.tenantSelect option {
+  background: var(--card);
+  color: var(--t1);
+}
+
+/* ── Period buttons ── */
+.periodBtn {
+  font-size: 12px;
+  padding: 5px 12px;
+  border-radius: var(--r2);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--t3);
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 500;
+  transition: all 0.12s var(--ease);
+}
+
+.periodBtn:hover {
+  background: var(--bg2);
+  color: var(--t1);
+}
+
+.periodBtn.active {
+  background: var(--t1);
+  color: var(--bg);
+  border-color: var(--t1);
+}
+
+/* ── Theme toggle ── */
+.themeToggle {
+  font-size: 14px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--r2);
+  border: 1px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  color: var(--t3);
+  transition: all 0.12s var(--ease);
+  line-height: 1;
+}
+
+.themeToggle:hover {
+  background: var(--bg2);
+  color: var(--t1);
+}
+
+/* ── User chip ── */
+.userChip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px 4px 4px;
+  border-radius: var(--r2);
+  background: transparent;
+  border: 1px solid transparent;
+  transition: all 0.12s var(--ease);
+}
+
+.userChip:hover {
+  background: var(--bg2);
+}
+
+.avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: var(--r2);
+  background: var(--acc);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  letter-spacing: -0.02em;
+}
+
+.userName {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--t1);
+}
+
+.roleBadge {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 100px;
+  font-weight: 500;
+  display: inline-block;
+}
+
+.roleSuper {
+  background: var(--blue-bg);
+  color: var(--blue-text);
+}
+
+.roleAdmin {
+  background: var(--green-bg);
+  color: var(--green-text);
+}
+
+.roleViewer {
+  background: var(--bg2);
+  color: var(--t3);
+}
+
+/* ── Scope indicator ── */
+.scopeIndicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  border-radius: var(--r2);
+  background: var(--bg2);
+  border: 1px solid var(--border);
+}
+
+.scopeLock {
+  font-size: 10px;
+  line-height: 1;
+}
+
+.scopeLabel {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--t1);
+}
+
+/* ── Logout ── */
+.logoutBtn {
+  font-size: 12px;
+  padding: 5px 12px;
+  border-radius: var(--r2);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--t2);
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 500;
+  transition: all 0.12s var(--ease);
+}
+
+.logoutBtn:hover {
+  background: var(--red-bg);
+  border-color: rgba(239, 68, 68, 0.2);
+  color: var(--red-text);
+}

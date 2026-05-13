@@ -192,3 +192,35 @@ class CreditListResponse(BaseModel):
     year_month: int
     total: int
     credits: list[CreditLineItem]
+
+
+# ============================================================
+# CONTRACTS
+# ============================================================
+
+class ContractUpdateReq(BaseModel):
+    """Request body for updating a tenant's billing contract."""
+    contract_type: str = Field(description="pay_as_you_go | forfait | hybrid")
+    status: str = Field(default="active", description="draft | proposed | active | rejected")
+    base_fee_usd: float = 0.0
+    forfait_tokens: int = 0
+    overage_rate_per_1k: float = 0.0
+    description: Optional[str] = None
+
+
+class ContractResponse(BaseModel):
+    """Full billing contract response."""
+    id: uuid.UUID
+    tenant_id: str
+    contract_type: str
+    status: str
+    base_fee_usd: str
+    forfait_tokens: int
+    overage_rate_per_1k: str
+    currency: str
+    is_active: bool
+    description: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}

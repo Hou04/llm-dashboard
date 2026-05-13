@@ -1,0 +1,153 @@
+@startuml ch6_class_billing
+' ============================================================
+' CHAPITRE 6 — Diagramme de Classes — Module Billing
+' Figure 6.x : Diagramme de classes du module Billing
+' ============================================================
+
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+skinparam roundcorner 5
+
+skinparam class {
+  BackgroundColor #ECF0F1
+  BorderColor #2C3E50
+  FontColor #2C3E50
+  HeaderBackgroundColor #C0392B
+  HeaderFontColor #FFFFFF
+}
+
+title <size:16><b>Diagramme de Classes — Module Billing</b></size>
+
+class BillingContract {
+  - id : UUID <<PK>>
+  - tenant_id : UUID <<FK>>
+  - contract_type : ContractTypeEnum
+  - status : ContractStatusEnum
+  - base_fee : Decimal
+  - included_tokens : BigInteger?
+  - included_amount : Decimal?
+  - overage_rate : Float?
+  - discount_pct : Float
+  - start_date : Date
+  - end_date : Date?
+  - notes : Text?
+  - created_at : DateTime
+  - updated_at : DateTime
+  --
+  + is_active() : Boolean
+  + calculate_overage(usage: Decimal) : Decimal
+  + get_monthly_cost(usage: Decimal) : Decimal
+}
+
+class Invoice {
+  - id : UUID <<PK>>
+  - tenant_id : UUID <<FK>>
+  - contract_id : UUID <<FK>>
+  - invoice_number : String <<unique>>
+  - period_start : Date
+  - period_end : Date
+  - subtotal : Decimal
+  - discount_amount : Decimal
+  - tax_amount : Decimal
+  - total_amount : Decimal
+  - status : InvoiceStatusEnum
+  - due_date : Date
+  - paid_at : DateTime?
+  - notes : Text?
+  - created_at : DateTime
+  --
+  + is_overdue() : Boolean
+  + mark_as_paid() : void
+}
+
+class InvoiceLineItem {
+  - id : UUID <<PK>>
+  - invoice_id : UUID <<FK>>
+  - description : String
+  - provider : String
+  - model : String
+  - quantity_tokens : BigInteger
+  - unit_price : Decimal
+  - total_price : Decimal
+  - created_at : DateTime
+  --
+  + get_formatted_amount() : String
+}
+
+class LLMSession {
+  - id : UUID <<PK>>
+  - session_id : UUID
+  - tenant_id : UUID <<FK>>
+  - user_id : UUID?
+  - start_time : DateTime
+  - end_time : DateTime?
+  - total_turns : Integer
+  - total_tokens : BigInteger
+  - total_cost : Decimal
+  - metadata : JSON
+  - created_at : DateTime
+  --
+  + get_duration() : Timedelta
+  + get_avg_cost_per_turn() : Decimal
+}
+
+class PromptTemplate {
+  - id : UUID <<PK>>
+  - tenant_id : UUID <<FK>>
+  - name : String
+  - description : Text
+  - template_content : Text
+  - version : Integer
+  - status : TemplateStatusEnum
+  - tags : JSON
+  - variables : JSON
+  - created_by : UUID <<FK>>
+  - created_at : DateTime
+  - updated_at : DateTime
+  --
+  + render(variables: Dict) : String
+  + publish() : void
+  + archive() : void
+}
+
+enum ContractTypeEnum {
+  PAY_AS_YOU_GO
+  FLAT_RATE
+  HYBRID
+}
+
+enum ContractStatusEnum {
+  DRAFT
+  PROPOSED
+  ACCEPTED
+  ACTIVE
+  EXPIRED
+  CANCELLED
+}
+
+enum InvoiceStatusEnum {
+  DRAFT
+  FINALIZED
+  SENT
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum TemplateStatusEnum {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+BillingContract --> ContractTypeEnum
+BillingContract --> ContractStatusEnum
+Invoice --> InvoiceStatusEnum
+PromptTemplate --> TemplateStatusEnum
+
+BillingContract "1" --> "0..*" Invoice : génère >
+Invoice "1" --> "1..*" InvoiceLineItem : contient >
+LLMSession "1" --> "0..*" InvoiceLineItem : facturée via >
+
+@enduml

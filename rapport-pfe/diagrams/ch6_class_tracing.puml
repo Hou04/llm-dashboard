@@ -1,0 +1,151 @@
+@startuml ch6_class_tracing
+' ============================================================
+' CHAPITRE 6 — Diagramme de Classes — Modules Tracing et Prompts
+' Figure 6.x : Classes Tracing, Sessions et Prompt Templates
+' ============================================================
+
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam defaultFontSize 10
+skinparam roundcorner 5
+skinparam linetype ortho
+
+skinparam class {
+  BackgroundColor #ECF0F1
+  BorderColor #2C3E50
+  FontColor #2C3E50
+  HeaderBackgroundColor #2C3E50
+  HeaderFontColor #FFFFFF
+}
+
+title <size:16><b>Diagramme de Classes — Modules Tracing et Prompts</b></size>
+
+' ── Tracing ──
+class LLMSession {
+  id : UUID
+  tenant_id : UUID
+  user_id : UUID?
+  api_key_id : UUID
+  started_at : DateTime
+  ended_at : DateTime?
+  total_turns : Integer
+  total_tokens : BigInt
+  total_cost : Decimal
+  status : SessionStatus
+  metadata : JSONB
+}
+
+enum SessionStatus <<enumeration>> {
+  ACTIVE
+  COMPLETED
+  ABORTED
+}
+
+class LLMTokenLog {
+  id : UUID
+  session_id : UUID?
+  parent_call_id : UUID?
+  tenant_id : UUID
+  provider : String
+  model : String
+  input_tokens : Integer
+  output_tokens : Integer
+  cost_usd : Decimal
+  latency_ms : Integer
+  status : String
+  turn_number : Integer?
+}
+
+class TracingService {
+  - session_repo : SessionRepository
+  - log_repo : TokenLogRepository
+  --
+  + create_session(tenant_id, api_key_id) : LLMSession
+  + add_turn(session_id, log_entry) : void
+  + close_session(session_id) : LLMSession
+  + get_waterfall(session_id) : WaterfallView
+  + get_sessions(tenant_id, filters) : List<LLMSession>
+}
+
+class ABTestConfig {
+  id : UUID
+  tenant_id : UUID
+  name : String
+  variant_a_prompt_id : UUID
+  variant_b_prompt_id : UUID
+  traffic_split : Float
+  is_active : Boolean
+  created_at : DateTime
+}
+
+' ── Prompts ──
+class PromptTemplate {
+  id : UUID
+  tenant_id : UUID
+  name : String
+  description : Text
+  template_content : Text
+  variables : JSONB
+  version : Integer
+  status : PromptStatus
+  category : String
+  tags : JSONB
+  created_by : UUID
+  created_at : DateTime
+  updated_at : DateTime
+}
+
+enum PromptStatus <<enumeration>> {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+class PromptService {
+  - template_repo : PromptRepository
+  --
+  + create_template(data) : PromptTemplate
+  + publish(template_id) : PromptTemplate
+  + archive(template_id) : PromptTemplate
+  + render(template_id, variables) : String
+  + list_by_category(tenant_id, category) : List
+  + increment_version(template_id) : PromptTemplate
+}
+
+' ── Alertes ──
+class AlertRule {
+  id : UUID
+  tenant_id : UUID
+  alert_type : String
+  channel : AlertChannel
+  threshold : Float
+  is_active : Boolean
+}
+
+enum AlertChannel <<enumeration>> {
+  EMAIL
+  SLACK
+  WEBHOOK
+  IN_APP
+}
+
+' ═══════ RELATIONS ═══════
+
+LLMSession "1" --o "1..*" LLMTokenLog : contient >
+LLMSession --> SessionStatus
+
+LLMTokenLog "0..*" --> "0..1" LLMTokenLog : parent_call_id >
+
+TracingService --> LLMSession : gère >
+TracingService --> LLMTokenLog : interroge >
+
+ABTestConfig "0..*" --> "1" PromptTemplate : variant_a >
+ABTestConfig "0..*" --> "1" PromptTemplate : variant_b >
+
+PromptTemplate --> PromptStatus
+PromptService --> PromptTemplate : gère >
+
+AlertRule --> AlertChannel
+TracingService ..> AlertRule : déclenche >
+
+@enduml

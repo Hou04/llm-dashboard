@@ -1,0 +1,78 @@
+@startuml ch5_uc_sprint2
+' ============================================================
+' CHAPITRE 5 — Diagramme de Cas d'Utilisation — Sprint 2
+' Figure 5.x : Cas d'utilisation du Sprint 2
+' ============================================================
+
+skinparam backgroundColor #FFFFFF
+skinparam defaultFontName Arial
+skinparam defaultFontSize 11
+skinparam roundcorner 10
+skinparam actorStyle awesome
+
+skinparam usecase {
+  BackgroundColor #ECF0F1
+  BorderColor #2C3E50
+  FontColor #2C3E50
+}
+
+left to right direction
+
+actor "Administrateur\nTenant" as TA #3498DB
+actor "Celery Beat\n(Scheduler)" as CB #9B59B6
+actor "Observateur" as OB #2ECC71
+
+rectangle "Sprint 2 — Intelligence Artificielle & Analytics" {
+
+  package "Analytics (M2)" {
+    usecase "Consulter les coûts\nquotidiens agrégés" as UC1
+    usecase "Consulter les coûts\nmensuels agrégés" as UC2
+  }
+
+  package "Détection d'Anomalies (M3)" {
+    usecase "Consulter les\nanomalies détectées" as UC3
+    usecase "Filtrer les anomalies\npar sévérité/type" as UC4
+    usecase "Exécuter la\ndétection ML" as UC5
+  }
+
+  package "Explainer IA (M5)" {
+    usecase "Consulter l'explication\nd'une anomalie" as UC6
+    usecase "Consulter les\nrecommandations" as UC7
+    usecase "Rechercher des\nanomalies similaires" as UC8
+  }
+
+  package "Forecasting (M6)" {
+    usecase "Consulter les\nprévisions budgétaires" as UC9
+    usecase "Consulter les\nrisques de dépassement" as UC10
+    usecase "Générer une\nprévision" as UC11
+  }
+
+  package "Optimisation (M9)" {
+    usecase "Consulter les\nrecommandations\nd'optimisation" as UC12
+  }
+}
+
+TA --> UC1
+TA --> UC2
+TA --> UC3
+TA --> UC4
+TA --> UC6
+TA --> UC7
+TA --> UC8
+TA --> UC9
+TA --> UC10
+TA --> UC12
+
+OB --> UC1
+OB --> UC3
+OB --> UC9
+
+CB --> UC5 : <<scheduled>>\nQuotidien 02h00
+CB --> UC11 : <<scheduled>>\nMensuel 03h00
+
+UC3 ..> UC6 : <<extend>>
+UC6 ..> UC7 : <<include>>
+UC6 ..> UC8 : <<extend>>
+UC5 ..> UC6 : <<trigger>>
+
+@enduml

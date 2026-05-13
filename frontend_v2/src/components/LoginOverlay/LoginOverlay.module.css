@@ -1,0 +1,202 @@
+/* ============================================================
+   Login Overlay — Premium authentication screen
+   ============================================================ */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  overflow: hidden;
+}
+
+/* Subtle grid pattern behind the card */
+.overlay::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(circle at 1px 1px, var(--border) 1px, transparent 0);
+  background-size: 40px 40px;
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+/* Gradient glow */
+.overlay::after {
+  content: '';
+  position: absolute;
+  width: 600px;
+  height: 600px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--acc-dim) 0%, transparent 70%);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+.card {
+  width: 400px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: var(--r4);
+  padding: 44px 40px;
+  box-shadow: var(--shadow-lg);
+  position: relative;
+  z-index: 1;
+  animation: loginAppear 0.4s var(--ease-out);
+}
+
+@keyframes loginAppear {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.logoWrap {
+  text-align: center;
+  margin-bottom: 36px;
+}
+
+.logoIcon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r3);
+  background: var(--t1);
+  color: var(--bg);
+  font-size: 20px;
+  font-weight: 800;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 18px;
+  letter-spacing: -0.04em;
+}
+
+.logoName {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  color: var(--t1);
+  margin-bottom: 6px;
+}
+
+.logoSub {
+  font-size: 13px;
+  color: var(--t3);
+  font-weight: 400;
+}
+
+.error {
+  font-size: 13px;
+  color: var(--red-text);
+  padding: 10px 14px;
+  background: var(--red-bg);
+  border: 1px solid rgba(239, 68, 68, 0.12);
+  border-radius: var(--r2);
+  margin-bottom: 18px;
+  text-align: center;
+}
+
+.field {
+  margin-bottom: 18px;
+}
+
+.label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--t1);
+  margin-bottom: 6px;
+  letter-spacing: 0;
+}
+
+.input {
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: var(--r2);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--t1);
+  font-size: 14px;
+  font-family: inherit;
+  transition: all 0.15s var(--ease);
+  outline: none;
+}
+
+.input::placeholder {
+  color: var(--t4);
+}
+
+.input:focus {
+  border-color: var(--acc);
+  box-shadow: var(--shadow-ring);
+  background: var(--card);
+}
+
+.submitBtn {
+  width: 100%;
+  padding: 11px;
+  border-radius: var(--r2);
+  border: none;
+  background: var(--t1);
+  color: var(--bg);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.15s var(--ease);
+  margin-top: 6px;
+}
+
+.submitBtn:hover {
+  opacity: 0.9;
+  box-shadow: var(--shadow-md);
+}
+
+.submitBtn:active {
+  transform: scale(0.98);
+}
+
+.submitBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.demoHint {
+  text-align: center;
+  font-size: 12px;
+  color: var(--t3);
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid var(--border);
+}
+
+.demoBtn {
+  font-size: 12px;
+  color: var(--acc);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 600;
+  transition: all 0.12s var(--ease);
+  padding: 3px 6px;
+  border-radius: var(--r);
+}
+
+.demoBtn:hover {
+  color: var(--t1);
+  background: var(--acc-dim);
+}

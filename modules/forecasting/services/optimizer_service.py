@@ -77,56 +77,7 @@ def get_embed_model():
             pass
     return _embed_model
 
-# ============================================================
-# MODEL PRICING TABLE (USD per 1k tokens)
-# ============================================================
-MODEL_PRICING = {
-    "gpt-4o":           {"input": 0.0025,  "output": 0.010},
-    "gpt-4o-mini":      {"input": 0.00015, "output": 0.0006},
-    "claude-3-haiku":   {"input": 0.00025, "output": 0.00125},
-    "claude-3-sonnet":  {"input": 0.003,   "output": 0.015},
-    "claude-3-opus":    {"input": 0.015,   "output": 0.075},
-}
-
-# Model tier hierarchy (higher index = more capable = more expensive)
-MODEL_TIERS = {
-    "gpt-4o-mini":    1,
-    "claude-3-haiku": 1,
-    "gpt-4o":         3,
-    "claude-3-sonnet":3,
-    "claude-3-opus":  5,
-}
-
-# Downgrade candidates: expensive → cheaper alternative
-DOWNGRADE_MAP = {
-    "gpt-4o":          "gpt-4o-mini",
-    "claude-3-sonnet": "claude-3-haiku",
-    "claude-3-opus":   "claude-3-haiku",
-}
-
-# Upgrade candidates: cheap → more capable
-UPGRADE_MAP = {
-    "gpt-4o-mini":    "gpt-4o",
-    "claude-3-haiku": "claude-3-sonnet",
-}
-
-# Thresholds for downgrade eligibility
-DOWNGRADE_MAX_INPUT_TOKENS  = 400
-DOWNGRADE_MAX_OUTPUT_TOKENS = 500
-DOWNGRADE_MAX_ERROR_RATE    = 5.0
-
-# Thresholds for upgrade recommendation
-UPGRADE_MIN_INPUT_TOKENS  = 1500
-UPGRADE_MIN_OUTPUT_TOKENS = 1200
-UPGRADE_MIN_ERROR_RATE    = 10.0
-
-# Minimum monthly saving to bother recommending (USD)
-MIN_SAVING_THRESHOLD_USD = 0.50
-
-# Prompt optimization thresholds
-VERBOSE_INPUT_THRESHOLD  = 800   # avg_input > this → verbose prompt candidate
-MISSING_FORMAT_THRESHOLD = 600   # avg_output > this → missing output format candidate
-
+from core.config_registry import config
 
 class OptimizerService:
 
@@ -185,9 +136,9 @@ class OptimizerService:
         try:
             X_tree, y_tree = [], []
             for p in profiles:
-                if p["avg_input_tokens"] < 400 and p["error_rate_pct"] < 5.0:
+                if p["avg_input_tokens"] < config.get("optimizer.downgrade_max_input_tokens", 400) and p["error_rate_pct"] < config.get("optimizer.downgrade_max_error_rate", 5.0):
                     y_tree.append(0) # downgrade
-                elif p["error_rate_pct"] > 10.0:
+                elif p["error_rate_pct"] > config.get("optimizer.upgrade_min_error_rate", 10.0):
                     y_tree.append(2) # upgrade
                 else:
                     y_tree.append(1) # keep
@@ -389,6 +340,9 @@ class OptimizerService:
         avg_cost     = profile["avg_cost_per_call"]
 
         action = "keep"
+        DOWNGRADE_MAP = config.get("optimizer.downgrade_map", {})
+        UPGRADE_MAP = config.get("optimizer.upgrade_map", {})
+        
         if clf is not None:
             pred = clf.predict([[avg_input, avg_output, error_rate]])[0]
             if pred == 0 and model in DOWNGRADE_MAP:
@@ -397,15 +351,15 @@ class OptimizerService:
                 action = "upgrade"
         else:
             # Fallback
-            if model in DOWNGRADE_MAP and avg_input < DOWNGRADE_MAX_INPUT_TOKENS and error_rate < DOWNGRADE_MAX_ERROR_RATE:
+            if model in DOWNGRADE_MAP and avg_input < config.get("optimizer.downgrade_max_input_tokens", 400) and error_rate < config.get("optimizer.downgrade_max_error_rate", 5.0):
                 action = "downgrade"
-            elif model in UPGRADE_MAP and error_rate > UPGRADE_MIN_ERROR_RATE:
+            elif model in UPGRADE_MAP and error_rate > config.get("optimizer.upgrade_min_error_rate", 10.0):
                 action = "upgrade"
 
         if action == "downgrade":
             target_model = DOWNGRADE_MAP[model]
             saving = self._compute_saving(profile, model, target_model, monthly_calls)
-            if saving["monthly_saving"] < MIN_SAVING_THRESHOLD_USD:
+            if saving["monthly_saving"] < config.get("optimizer.min_saving_threshold_usd", 0.50):
                 return None
             confidence = self._downgrade_confidence(avg_input, avg_output, error_rate)
             return {
@@ -437,7 +391,7 @@ class OptimizerService:
         if action == "upgrade":
             target_model = UPGRADE_MAP[model]
             saving = self._compute_saving(profile, model, target_model, monthly_calls)
-            if error_rate <= UPGRADE_MIN_ERROR_RATE and saving["monthly_saving"] >= 0:
+            if error_rate <= config.get("optimizer.upgrade_min_error_rate", 10.0) and saving["monthly_saving"] >= 0:
                 pass
             else:
                 return {
@@ -487,9 +441,14 @@ class OptimizerService:
         """
         avg_input  = profile["avg_input_tokens"]
         avg_output = profile["avg_output_tokens"]
+        
+        MODEL_PRICING = config.get("optimizer.model_pricing", {
+            "gpt-4o": {"input": 0.0025, "output": 0.010},
+            "gpt-4o-mini": {"input": 0.00015, "output": 0.0006}
+        })
 
-        current_pricing = MODEL_PRICING.get(current_model, MODEL_PRICING["gpt-4o"])
-        target_pricing  = MODEL_PRICING.get(target_model,  MODEL_PRICING["gpt-4o-mini"])
+        current_pricing = MODEL_PRICING.get(current_model, MODEL_PRICING.get("gpt-4o", {"input": 0.0025, "output": 0.010}))
+        target_pricing  = MODEL_PRICING.get(target_model,  MODEL_PRICING.get("gpt-4o-mini", {"input": 0.00015, "output": 0.0006}))
 
         current_cost_per_call = (
             (avg_input  / 1000) * current_pricing["input"]
@@ -565,13 +524,15 @@ class OptimizerService:
         monthly_calls = call_count  # already 30-day window
 
         # --- Check 1: Verbose input prompts ---
-        if avg_input > VERBOSE_INPUT_THRESHOLD:
+        verbose_input_threshold = config.get("optimizer.verbose_input_threshold", 800)
+        if avg_input > verbose_input_threshold:
             reduction_pct       = 25.0
+            MODEL_PRICING = config.get("optimizer.model_pricing", {"gpt-4o": {"input": 0.0025}})
             monthly_token_saving= int(monthly_calls * avg_input * (reduction_pct / 100))
             monthly_cost_saving = Decimal(str(round(
                 monthly_calls
                 * (avg_input * 0.25 / 1000)
-                * MODEL_PRICING.get(profile["model"], MODEL_PRICING["gpt-4o"])["input"],
+                * MODEL_PRICING.get(profile["model"], MODEL_PRICING.get("gpt-4o", {"input": 0.0025}))["input"],
                 4,
             )))
             optimizations.append({
@@ -586,7 +547,7 @@ class OptimizerService:
                 "recommendation_title":            "Reduce verbose input prompts",
                 "recommendation_detail": (
                     f"Agent '{agent_id}' averages {avg_input:.0f} input tokens per call. "
-                    f"Inputs above {VERBOSE_INPUT_THRESHOLD} tokens often contain redundant "
+                    f"Inputs above {verbose_input_threshold} tokens often contain redundant "
                     f"context or instructions. Review system prompts for: repeated static "
                     f"context, verbose role descriptions, and redundant instructions. "
                     f"A 25% reduction is typically achievable without quality loss."
@@ -600,13 +561,14 @@ class OptimizerService:
             })
 
         # --- Check 2: High output variance suggesting missing format ---
-        if avg_output > MISSING_FORMAT_THRESHOLD:
+        if avg_output > config.get("optimizer.missing_format_threshold", 600):
             reduction_pct       = 20.0
+            MODEL_PRICING = config.get("optimizer.model_pricing", {"gpt-4o": {"output": 0.010}})
             monthly_token_saving= int(monthly_calls * avg_output * (reduction_pct / 100))
             monthly_cost_saving = Decimal(str(round(
                 monthly_calls
                 * (avg_output * 0.20 / 1000)
-                * MODEL_PRICING.get(profile["model"], MODEL_PRICING["gpt-4o"])["output"],
+                * MODEL_PRICING.get(profile["model"], MODEL_PRICING.get("gpt-4o", {"output": 0.010}))["output"],
                 4,
             )))
             optimizations.append({
