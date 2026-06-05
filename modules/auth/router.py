@@ -4,7 +4,7 @@ Prefix: /v1/auth
 """
 
 import logging
-from typing import Annotated
+from typing import Annotated, Optional
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -614,7 +614,7 @@ async def list_virtual_keys(
     return VirtualKeyListResponse(
         keys=[VirtualKeyResponse.model_validate(k) for k in keys],
         total=len(keys),
-        tenant_id=tenant_filter,
+        tenant_id=effective_tenant,
     )
 
 

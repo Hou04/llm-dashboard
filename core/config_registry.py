@@ -93,10 +93,14 @@ class ConfigRegistry:
                 "gpt-4o": "gpt-4o-mini",
                 "claude-3-sonnet": "claude-3-haiku",
                 "claude-3-opus": "claude-3-haiku",
+                "llama-3.3-70b-versatile": "llama-3.1-8b-instant",
+                "mixtral-8x7b-32768": "llama-3.1-8b-instant",
             },
             "optimizer.upgrade_map": {
                 "gpt-4o-mini": "gpt-4o",
                 "claude-3-haiku": "claude-3-sonnet",
+                "llama-3.1-8b-instant": "llama-3.3-70b-versatile",
+                "gemma2-9b-it": "llama-3.3-70b-versatile",
             },
             "optimizer.downgrade_max_input_tokens": 400,
             "optimizer.downgrade_max_output_tokens": 500,
@@ -104,7 +108,7 @@ class ConfigRegistry:
             "optimizer.upgrade_min_input_tokens": 1500,
             "optimizer.upgrade_min_output_tokens": 1200,
             "optimizer.upgrade_min_error_rate": 10.0,
-            "optimizer.min_saving_threshold_usd": 0.50,
+            "optimizer.min_saving_threshold_usd": 0.05,
             "optimizer.verbose_input_threshold": 800,
             "optimizer.missing_format_threshold": 600,
             "optimizer.model_pricing": {
@@ -113,6 +117,10 @@ class ConfigRegistry:
                 "claude-3-haiku":   {"input": 0.00025, "output": 0.00125},
                 "claude-3-sonnet":  {"input": 0.003,   "output": 0.015},
                 "claude-3-opus":    {"input": 0.015,   "output": 0.075},
+                "llama-3.3-70b-versatile": {"input": 0.00059, "output": 0.00079},
+                "llama-3.1-8b-instant":    {"input": 0.00005, "output": 0.00008},
+                "mixtral-8x7b-32768":      {"input": 0.00024, "output": 0.00024},
+                "gemma2-9b-it":            {"input": 0.00020, "output": 0.00020},
             },
 
             # ── Observability ──

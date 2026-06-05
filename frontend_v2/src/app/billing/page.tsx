@@ -107,6 +107,26 @@ export default function BillingPage() {
     a.click();
   };
 
+  const downloadPdf = async () => {
+    if (!invoice) return;
+    const t = tenant || user?.tenant_id;
+    if (!t) return;
+    try {
+      const res = await api.get(`/v1/billing/invoice/${t}/${invoice.year_month}/pdf`, {
+        responseType: 'blob',
+      });
+      const blob = new Blob([res.data], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `invoice_${t}_${invoice.year_month}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e: any) {
+      alert('Failed to download PDF: ' + (e.response?.data?.detail || e.message));
+    }
+  };
+
   const loadContract = async () => {
     const targetTenant = user?.role === 'super_admin' ? tenant : user?.tenant_id;
     if (!targetTenant) return;
@@ -352,6 +372,7 @@ export default function BillingPage() {
                 <div className="card-title">Invoice Detail</div>
                 <div style={{ display: 'flex', gap: 6 }}>
                   <button className="btn" onClick={downloadJson} style={{ fontSize: 10, padding: '2px 8px' }}>JSON</button>
+                  <button className="btn" onClick={downloadPdf} style={{ fontSize: 10, padding: '2px 8px' }}>PDF</button>
                   {user?.role === 'super_admin' && invoice.status !== 'finalized' && (
                     <button className="btn btn-primary" onClick={finalizeInvoice} style={{ fontSize: 10, padding: '2px 8px' }}>Finalize</button>
                   )}

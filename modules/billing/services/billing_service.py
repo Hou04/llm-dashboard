@@ -565,35 +565,7 @@ class BillingService:
         month = year_month % 100
         return f"{calendar.month_name[month]} {year}"
 
-    async def generate_all_for_month(self, year_month: int, finalize: bool = False) -> dict:
-        """
-        Process all billable tenants for a given month.
-        Used by automated background tasks.
-        """
-        tenants = await self._discover_billable_tenants(year_month)
-        succeeded = 0
-        failed = 0
-        results = []
 
-        for tenant_id in tenants:
-            try:
-                res = await self.generate_monthly_invoice(tenant_id, year_month, finalize=finalize)
-                if res.get("success", True):
-                    succeeded += 1
-                else:
-                    failed += 1
-                results.append({"tenant_id": tenant_id, "success": res.get("success", True)})
-            except Exception as e:
-                logger.error(f"Failed to generate invoice for {tenant_id}: {str(e)}")
-                failed += 1
-                results.append({"tenant_id": tenant_id, "success": False, "error": str(e)})
-
-        return {
-            "year_month": year_month,
-            "succeeded": succeeded,
-            "failed": failed,
-            "details": results
-        }
 
     async def finalize_invoice(self, tenant_id: str, year_month: int) -> dict:
         """

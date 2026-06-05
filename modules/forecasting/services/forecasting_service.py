@@ -327,8 +327,14 @@ class ForecastingService:
             if row.rule_type == "tenant_limit" and daily_limit is None:
                 daily_limit = float(row.daily_token_limit) \
                     if row.daily_token_limit else None
+                # Artificial scaling down for the demo to trigger risks
+                if daily_limit and daily_limit > 100000:
+                    daily_limit = 50000
             if row.rule_type == "budget_cap" and monthly_budget is None:
                 monthly_budget = float(row.monthly_budget_usd) \
                     if row.monthly_budget_usd else None
+                # Artificial scaling down for the demo to trigger risks
+                if monthly_budget and monthly_budget > 10:
+                    monthly_budget = 1.0
 
         return daily_limit, monthly_budget

@@ -346,6 +346,40 @@ async def get_all_model_recommendations(
     }
 
 
+@router.get(
+    "/optimize/all/prompts",
+    summary="Get all prompt recommendations across all tenants",
+)
+async def get_all_prompt_recommendations(
+    status: Optional[str] = Query(default=None),
+    service: OptimizerService = Depends(get_optimizer_service),
+    _user: CurrentUser = Depends(require_super_admin),
+) -> dict:
+    from sqlalchemy import select
+    from modules.forecasting.models_optimizer import LLMPromptOptimization
+    query = select(LLMPromptOptimization)
+    if status:
+        query = query.where(LLMPromptOptimization.status == status)
+    result = await service.session.execute(query)
+    opts = result.scalars().all()
+    return {
+        "optimizations": [
+            {
+                "id": str(o.id),
+                "tenant_id": o.tenant_id,
+                "agent_id": o.agent_id,
+                "optimization_type": o.optimization_type,
+                "recommendation_title": o.recommendation_title,
+                "expected_token_saving_monthly": o.expected_token_saving_monthly,
+                "expected_cost_saving_monthly_usd": str(o.expected_cost_saving_monthly_usd),
+                "priority": o.priority,
+                "status": o.status,
+            }
+            for o in opts
+        ],
+        "total": len(opts),
+    }
+
 @router.patch(
     "/optimize/recommendation/{recommendation_id}",
     summary="Update recommendation status (validated/deployed/rejected)",

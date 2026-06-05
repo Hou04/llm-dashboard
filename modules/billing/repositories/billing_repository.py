@@ -271,8 +271,8 @@ class BillingRepository:
         result = await self.session.execute(
             text("""
                 SELECT
-                    :tenant_id                                          AS tenant_id,
-                    :year_month                                         AS year_month,
+                    CAST(:tenant_id AS TEXT)                            AS tenant_id,
+                    CAST(:year_month AS INTEGER)                        AS year_month,
                     COUNT(*)::int                                       AS total_calls,
                     COUNT(*) FILTER (WHERE status = 'success')::int     AS successful_calls,
                     COUNT(*) FILTER (WHERE status != 'success')::int    AS failed_calls,

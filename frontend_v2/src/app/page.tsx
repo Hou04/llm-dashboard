@@ -53,6 +53,7 @@ export default function ExecutivePage() {
   }, [isAuthenticated, user, router]);
 
   useEffect(() => {
+    if (!isAuthenticated) return;
     const load = async () => {
       setLoading(true);
       setError('');
@@ -71,7 +72,7 @@ export default function ExecutivePage() {
       }
     };
     load();
-  }, [selectedTenant, period]);
+  }, [selectedTenant, period, isAuthenticated]);
 
   // ── Render charts when data changes ──
   useEffect(() => {

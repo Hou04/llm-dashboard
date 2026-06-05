@@ -45,6 +45,10 @@ from modules.gateway.schemas import (
     GovernanceDecisionListResponse,
     GovernanceQuotaStatus,
     GovernanceSummaryResponse,
+    PlaygroundRequest,
+    PlaygroundResponse,
+    PlaygroundTokens,
+    PlaygroundGovernance,
 )
 from modules.gateway.services import GatewayService, CallRequest
 from modules.gateway.services.governance_service import GovernanceService
@@ -986,3 +990,166 @@ async def get_quota_status(
     user.require_tenant_access(tenant_id)
     quota = await service.get_quota_status(tenant_id)
     return GovernanceQuotaStatus(**quota)
+
+
+@router.post(
+    "/playground",
+    response_model=PlaygroundResponse,
+    summary="Playground — Execute real LLM completions",
+    description=(
+        "Executes a completion request using the LLMProvider client, "
+        "evaluating governance rules and logging usage metadata in the gateway."
+    ),
+    tags=["Gateway", "Playground"],
+)
+async def execute_playground_completion(
+    request: PlaygroundRequest,
+    service: GatewayService = Depends(get_gateway_service),
+    user: CurrentUser = Depends(require_tenant_viewer),
+) -> PlaygroundResponse:
+    # Resolve target tenant
+    tenant_id = request.tenant_id or user.tenant_id
+    if not tenant_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Tenant ID must be specified or inherited from user session"
+        )
+    user.require_tenant_access(tenant_id)
+
+    model_requested = request.model
+    provider_requested = request.provider
+
+    decision = "allow"
+    was_downgraded = False
+    model_to_use = model_requested
+    provider_to_use = provider_requested
+    reason = None
+
+    # Step 1: Pre-call Governance evaluation
+    if request.apply_governance:
+        gov = await service.evaluate_governance(
+            tenant_id=tenant_id,
+            model=model_requested,
+            tokens_requested=0,
+            prompt_name=None
+        )
+        decision = gov.decision
+        reason = gov.reason
+
+        if decision == "block":
+            # Call blocked — record blocked decision and return immediately
+            blocked_req = CallRequest(
+                tenant_id=tenant_id,
+                model=model_requested,
+                provider=provider_requested,
+                input_tokens=0,
+                output_tokens=0,
+                total_tokens=0,
+                cost_usd=Decimal("0.0"),
+                status="blocked",
+                module="playground",
+                prompt_text=request.prompt,
+                request_id=request.session_id,
+                error_message=reason or "Blocked by governance rules"
+            )
+            await service._record_blocked_decision(blocked_req, gov)
+            await service.session.commit()
+            await service._publish_blocked_event(blocked_req, gov)
+
+            return PlaygroundResponse(
+                text=f"Blocked by governance rules: {reason or 'No reason provided'}",
+                model=model_requested,
+                provider=provider_requested,
+                tokens=PlaygroundTokens(input=0, output=0, total=0),
+                cost_usd=Decimal("0.0"),
+                duration_ms=0,
+                governance=PlaygroundGovernance(
+                    decision="block",
+                    was_downgraded=False,
+                    model_used=model_requested
+                ),
+                error=reason or "Blocked by governance rules"
+            )
+
+        elif decision == "allow_downgrade":
+            was_downgraded = True
+            model_to_use = gov.model_used or model_requested
+            # Dynamically resolve provider for downgraded model
+            if "/" in model_to_use:
+                provider_to_use = model_to_use.split("/")[0].lower()
+            else:
+                import litellm
+                info = litellm.model_cost.get(model_to_use, {})
+                provider_to_use = info.get("model_info", {}).get("provider", provider_requested).lower()
+
+    # Step 2: Execute LLM call via LLMProvider
+    from modules.detection.services.llm_provider import LLMProvider
+    llm = LLMProvider()
+    
+    import time
+    start_time = time.time()
+    
+    llm_result = await llm.complete(
+        prompt=request.prompt,
+        provider=provider_to_use,
+        model=model_to_use,
+        max_tokens=request.max_tokens or 1024
+    )
+    
+    duration_ms = int((time.time() - start_time) * 1000)
+    
+    # Calculate costs
+    input_tokens = llm_result.get("input_tokens", 0)
+    output_tokens = llm_result.get("output_tokens", 0)
+    total_tokens = input_tokens + output_tokens
+    
+    # Query pricing
+    import litellm
+    info = litellm.model_cost.get(model_to_use, {})
+    input_cost = info.get("input_cost_per_token", 0.0000015)
+    output_cost = info.get("output_cost_per_token", 0.000002)
+    cost_usd = Decimal(str(input_tokens * input_cost)) + Decimal(str(output_tokens * output_cost))
+
+    error_msg = llm_result.get("error")
+    status_str = "success" if not error_msg else "error"
+    
+    # Step 3: Log call in Gateway
+    call_request = CallRequest(
+        tenant_id=tenant_id,
+        model=model_to_use,
+        provider=provider_to_use,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        total_tokens=total_tokens,
+        cost_usd=cost_usd,
+        status=status_str,
+        module="playground",
+        duration_ms=duration_ms,
+        request_id=request.session_id,
+        error_message=error_msg,
+        prompt_text=request.prompt,
+        completion_text=llm_result.get("text", "")
+    )
+    
+    log_result = await service.log_call(call_request)
+    
+    return PlaygroundResponse(
+        text=llm_result.get("text", ""),
+        model=model_to_use,
+        provider=provider_to_use,
+        tokens=PlaygroundTokens(
+            input=input_tokens,
+            output=output_tokens,
+            total=total_tokens
+        ),
+        cost_usd=cost_usd,
+        duration_ms=duration_ms,
+        governance=PlaygroundGovernance(
+            decision=decision,
+            was_downgraded=was_downgraded,
+            model_used=model_to_use
+        ),
+        log_id=str(log_result.log_id) if log_result.log_id else None,
+        error=error_msg
+    )
+

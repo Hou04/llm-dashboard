@@ -90,68 +90,48 @@ export default function PlaygroundPage() {
    * would sit in front and actually forward to OpenAI/Anthropic.
    */
   const runPrompt = async (model: string): Promise<CompletionResult> => {
-    const start = Date.now();
-    const inputTokens = Math.ceil(prompt.length / 4);
     const provider = models.find(m => m.model === model)?.provider || 'openai';
 
-    // Estimate tokens based on prompt length (real LLM would return actual counts)
-    const estimatedOutputTokens = Math.ceil(inputTokens * 1.5);
-    const totalTokens = inputTokens + estimatedOutputTokens;
-
-    // Cost estimation based on model tier
-    const costPerToken = model.includes('gpt-4') ? 0.00003 
-      : model.includes('claude-3-opus') ? 0.000075
-      : model.includes('claude') ? 0.000008
-      : 0.0000015; // default for mini/haiku models
-    const estimatedCost = totalTokens * costPerToken;
-
     try {
-      // Call the real Gateway API
-      const res = await api.post('/v1/gateway/log', {
-        tenant_id: selectedTenant || undefined,
+      // Call the real Playground Completion API
+      const res = await api.post('/v1/gateway/playground', {
+        prompt,
         model,
         provider,
-        input_tokens: inputTokens,
-        output_tokens: estimatedOutputTokens,
-        total_tokens: totalTokens,
-        cost_usd: estimatedCost,
-        status: 'success',
-        duration_ms: Date.now() - start,
-        module: 'playground',
-        prompt_text: prompt,
-        completion_text: `[Gateway Response — ${model}]\n\nPrompt processed through the LLM governance pipeline.\n\n✅ Governance evaluated\n✅ Token usage logged (${totalTokens.toLocaleString()} tokens)\n✅ Cost recorded ($${estimatedCost.toFixed(6)})\n✅ Session tracked: ${sessionId}\n\nModel: ${model} (${provider})\nInput tokens: ${inputTokens.toLocaleString()}\nOutput tokens: ${estimatedOutputTokens.toLocaleString()}\n\nThis call has been logged and is visible in:\n• Cost Analytics dashboard\n• Session Tracing (${sessionId})\n• Anomaly Detection pipeline\n• Governance Decisions audit`,
-        session_id: sessionId,
-        request_id: `req_${Math.random().toString(36).substring(7)}`,
+        tenant_id: selectedTenant || undefined,
+        apply_governance: applyGovernance,
+        session_id: sessionId || undefined,
+        max_tokens: 1024
       });
 
-      const duration = Date.now() - start;
       const data = res.data;
 
+      // Format response text with token breakdown and metadata
+      let formattedText = data.text;
+      if (data.error) {
+        formattedText = `[Gateway: ${data.governance?.decision || 'block'}] — BLOCKED / ERROR\n\n❌ ${data.error}\n\n${data.text || ''}`;
+      } else {
+        formattedText = `[Gateway: ${data.governance?.decision || 'allow'}] — ${data.model}\n\n${data.text}\n\n─────────────────────\n📋 Log ID: ${data.log_id || 'N/A'}\n🔒 Governance: ${data.governance?.decision || 'allow'}\n${data.governance?.was_downgraded ? `⚠️ Model downgraded from requested ${model}` : '✓ No downgrade'}\n\nTokens: ${data.tokens.total.toLocaleString()} (in: ${data.tokens.input}, out: ${data.tokens.output})\nCost: $${Number(data.cost_usd).toFixed(6)}\nLatency: ${data.duration_ms}ms\nSession: ${sessionId}`;
+      }
+
       return {
-        text: data.success 
-          ? `[Gateway: ${data.decision}] — ${model}\n\n✅ Call logged successfully\n📋 Log ID: ${data.log_id || 'N/A'}\n🔒 Governance: ${data.decision}\n${data.was_downgraded ? `⚠️ Model downgraded to: ${data.model_used}` : '✓ No downgrade'}\n\nTokens: ${totalTokens.toLocaleString()} (in: ${inputTokens}, out: ${estimatedOutputTokens})\nCost: $${estimatedCost.toFixed(6)}\nLatency: ${duration}ms\nSession: ${sessionId}\n\n─────────────────────\nPrompt:\n${prompt}`
-          : `[Gateway: ${data.decision}] — BLOCKED\n\n❌ ${data.error || 'Call blocked by governance'}\n\nThe governance engine prevented this call.\nReason: ${data.error}\n\nCheck Governance Rules to adjust limits.`,
-        model: data.model_used || model,
-        tokens: { input: inputTokens, output: estimatedOutputTokens, total: totalTokens },
-        cost_usd: estimatedCost,
-        duration_ms: duration,
+        text: formattedText,
+        model: data.model,
+        tokens: data.tokens,
+        cost_usd: Number(data.cost_usd),
+        duration_ms: data.duration_ms,
         log_id: data.log_id,
-        governance: {
-          decision: data.decision || 'allow',
-          was_downgraded: data.was_downgraded || false,
-          model_used: data.model_used || model,
-        },
-        error: data.success ? undefined : data.error,
+        governance: data.governance,
+        error: data.error || undefined,
       };
     } catch (e: any) {
-      const duration = Date.now() - start;
       const errorMsg = e.response?.data?.detail || e.message;
       return {
         text: `[Error] ${errorMsg}\n\nThe gateway returned an error. Check:\n1. Is the backend running? (port 8000)\n2. Are you authenticated?\n3. Is a tenant selected?`,
         model,
-        tokens: { input: inputTokens, output: 0, total: inputTokens },
+        tokens: { input: 0, output: 0, total: 0 },
         cost_usd: 0,
-        duration_ms: duration,
+        duration_ms: 0,
         error: errorMsg,
       };
     }

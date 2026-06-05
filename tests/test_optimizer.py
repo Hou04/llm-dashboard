@@ -21,11 +21,6 @@ from sqlalchemy.pool import NullPool
 from core.settings import settings
 from modules.forecasting.services.optimizer_service import (
     OptimizerService,
-    DOWNGRADE_MAX_INPUT_TOKENS,
-    DOWNGRADE_MAX_OUTPUT_TOKENS,
-    DOWNGRADE_MAX_ERROR_RATE,
-    UPGRADE_MIN_ERROR_RATE,
-    MODEL_PRICING,
 )
 from main import app
 

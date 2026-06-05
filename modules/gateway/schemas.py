@@ -426,4 +426,43 @@ class GovernanceSummaryResponse(BaseModel):
     total_rules_count:          int
     estimated_cost_blocked_usd: float
     estimated_cost_saved_usd:   float
-    tenant_stats:               list[dict]
+    tenant_stats:               list[dict]
+
+
+# ============================================================
+# PLAYGROUND SCHEMAS — real LLM completion contracts
+# ============================================================
+
+class PlaygroundTokens(BaseModel):
+    input: int
+    output: int
+    total: int
+
+
+class PlaygroundGovernance(BaseModel):
+    decision: str
+    was_downgraded: bool
+    model_used: str
+
+
+class PlaygroundRequest(BaseModel):
+    prompt: str = Field(..., description="Prompt string to send to the LLM")
+    model: str = Field(..., description="Target model name")
+    provider: str = Field(..., description="Target provider (openai, anthropic, groq, etc.)")
+    tenant_id: Optional[str] = Field(None, description="Scope execution to this tenant")
+    apply_governance: bool = Field(True, description="Whether to evaluate governance rules first")
+    session_id: Optional[str] = Field(None, description="Session ID for tracing")
+    max_tokens: Optional[int] = Field(1024, description="Max tokens to generate")
+
+
+class PlaygroundResponse(BaseModel):
+    text: str = Field(..., description="Response text from the LLM")
+    model: str = Field(..., description="Model actually used (might be downgraded)")
+    provider: str = Field(..., description="Provider actually used")
+    tokens: PlaygroundTokens = Field(..., description="Token usage details")
+    cost_usd: Decimal = Field(..., description="Cost of the completion call")
+    duration_ms: int = Field(..., description="Time taken in milliseconds")
+    governance: Optional[PlaygroundGovernance] = Field(None, description="Governance evaluation result")
+    log_id: Optional[str] = Field(None, description="Log ID of the call in the database")
+    error: Optional[str] = Field(None, description="Error message if the call failed")
+
